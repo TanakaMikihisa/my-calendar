@@ -7,11 +7,13 @@ final class DayViewModel {
     private let eventRepository: EventRepositoryProtocol
     private let workShiftRepository: WorkShiftRepositoryProtocol
     private let tagRepository: TagRepositoryProtocol
+    private let payRateRepository: PayRateRepositoryProtocol
 
     var date: Date
     var events: [Event] = []
     var workShifts: [WorkShift] = []
     var tags: [Tag] = []
+    var payRates: [PayRate] = []
     var isLoading: Bool = false
     var errorMessage: String?
 
@@ -20,13 +22,15 @@ final class DayViewModel {
         authRepository: AuthRepositoryProtocol = FirebaseAuthRepository(),
         eventRepository: EventRepositoryProtocol = FirestoreEventRepository(),
         workShiftRepository: WorkShiftRepositoryProtocol = FirestoreWorkShiftRepository(),
-        tagRepository: TagRepositoryProtocol = FirestoreTagRepository()
+        tagRepository: TagRepositoryProtocol = FirestoreTagRepository(),
+        payRateRepository: PayRateRepositoryProtocol = FirestorePayRateRepository()
     ) {
         self.date = date
         self.authRepository = authRepository
         self.eventRepository = eventRepository
         self.workShiftRepository = workShiftRepository
         self.tagRepository = tagRepository
+        self.payRateRepository = payRateRepository
     }
 
     func refresh() {
@@ -42,10 +46,12 @@ final class DayViewModel {
                 async let eventsTask = eventRepository.listActiveOverlapping(uid: uid, start: start, end: end)
                 async let shiftsTask = workShiftRepository.listActiveOverlapping(uid: uid, start: start, end: end)
                 async let tagsTask = tagRepository.listActive(uid: uid)
+                async let payRatesTask = payRateRepository.listActive(uid: uid)
 
                 self.events = try await eventsTask
                 self.workShifts = try await shiftsTask
                 self.tags = try await tagsTask
+                self.payRates = try await payRatesTask
                 self.errorMessage = nil
             } catch {
                 self.errorMessage = error.localizedDescription

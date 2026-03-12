@@ -29,6 +29,31 @@ struct EditWorkShiftSheet: View {
                         Text("固定給").tag(WorkPayType.fixed)
                     }
                     .pickerStyle(.segmented)
+                    if viewModel.payType == .hourly {
+                        if viewModel.payRates.isEmpty {
+                            Text("会社がありません。設定から追加できます。")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(viewModel.payRates) { rate in
+                                Button {
+                                    viewModel.selectedPayRateId = viewModel.selectedPayRateId == rate.id ? nil : rate.id
+                                } label: {
+                                    HStack {
+                                        Text(rate.title)
+                                            .foregroundStyle(.primary)
+                                        Spacer()
+                                        Text("¥\(NSDecimalNumber(decimal: rate.hourlyWage).stringValue)/時")
+                                            .foregroundStyle(.secondary)
+                                            .font(.subheadline)
+                                        if viewModel.selectedPayRateId == rate.id {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundStyle(.tint)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     if viewModel.payType == .fixed {
                         TextField("金額", text: $viewModel.fixedPayText)
                             .keyboardType(.decimalPad)
@@ -82,6 +107,7 @@ struct EditWorkShiftSheet: View {
             }
             .onAppear {
                 viewModel.loadTags()
+                viewModel.loadPayRates()
             }
             .alert("エラー", isPresented: $showErrorAlert) {
                 Button("OK") {

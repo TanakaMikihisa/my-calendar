@@ -6,12 +6,15 @@ final class EditWorkShiftViewModel {
     private let authRepository: AuthRepositoryProtocol
     private let workShiftRepository: WorkShiftRepositoryProtocol
     private let tagRepository: TagRepositoryProtocol
+    private let payRateRepository: PayRateRepositoryProtocol
 
     let shiftId: String
     var startAt: Date
     var endAt: Date
     var payType: WorkPayType
     var fixedPayText: String
+    var selectedPayRateId: PayRateID?
+    var payRates: [PayRate] = []
     var tags: [Tag] = []
     var selectedTagIds: Set<TagID>
     let createdAt: Date
@@ -23,16 +26,19 @@ final class EditWorkShiftViewModel {
         shift: WorkShift,
         authRepository: AuthRepositoryProtocol = FirebaseAuthRepository(),
         workShiftRepository: WorkShiftRepositoryProtocol = FirestoreWorkShiftRepository(),
-        tagRepository: TagRepositoryProtocol = FirestoreTagRepository()
+        tagRepository: TagRepositoryProtocol = FirestoreTagRepository(),
+        payRateRepository: PayRateRepositoryProtocol = FirestorePayRateRepository()
     ) {
         self.authRepository = authRepository
         self.workShiftRepository = workShiftRepository
         self.tagRepository = tagRepository
+        self.payRateRepository = payRateRepository
         self.shiftId = shift.id
         self.startAt = shift.startAt
         self.endAt = shift.endAt
         self.payType = shift.payType
         self.fixedPayText = shift.fixedPay.map { "\($0)" } ?? ""
+        self.selectedPayRateId = shift.payRateId
         self.selectedTagIds = Set(shift.tagIds)
         self.createdAt = shift.createdAt
     }
@@ -42,6 +48,17 @@ final class EditWorkShiftViewModel {
             do {
                 let uid = try await authRepository.ensureSignedInAnonymously()
                 tags = try await tagRepository.listActive(uid: uid)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func loadPayRates() {
+        Task { @MainActor in
+            do {
+                let uid = try await authRepository.ensureSignedInAnonymously()
+                payRates = try await payRateRepository.listActive(uid: uid)
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -84,7 +101,7 @@ final class EditWorkShiftViewModel {
                 startAt: startAt,
                 endAt: endAt,
                 payType: payType,
-                payRateId: nil,
+                payRateId: payType == .hourly ? selectedPayRateId : nil,
                 fixedPay: payType == .fixed ? parsedFixedPay : nil,
                 templateId: nil,
                 tagIds: Array(selectedTagIds),

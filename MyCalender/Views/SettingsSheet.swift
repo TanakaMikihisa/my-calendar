@@ -5,12 +5,14 @@ struct SettingsSheet: View {
     @State private var viewModel = SettingsViewModel()
     @State private var showTagForm = false
     @State private var editingTag: Tag?
+    @State private var showPayRateForm = false
+    @State private var editingPayRate: PayRate?
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("タグ") {
-                    if viewModel.isLoading {
+                    if viewModel.isLoading && viewModel.tags.isEmpty {
                         HStack {
                             Spacer()
                             ProgressView()
@@ -39,6 +41,38 @@ struct SettingsSheet: View {
                         showTagForm = true
                     }
                 }
+                Section("時給（会社）") {
+                    if viewModel.isLoading && viewModel.payRates.isEmpty {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
+                        }
+                    } else if viewModel.payRates.isEmpty {
+                        Text("会社がありません。追加して時給を設定できます。")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(viewModel.payRates) { payRate in
+                            Button {
+                                editingPayRate = payRate
+                                showPayRateForm = true
+                            } label: {
+                                HStack {
+                                    Text(payRate.title)
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Text("¥\(NSDecimalNumber(decimal: payRate.hourlyWage).stringValue)/時")
+                                        .foregroundStyle(.secondary)
+                                        .font(.subheadline)
+                                }
+                            }
+                        }
+                    }
+                    Button("会社を追加") {
+                        editingPayRate = nil
+                        showPayRateForm = true
+                    }
+                }
             }
             .navigationTitle("設定")
             .toolbar {
@@ -46,7 +80,7 @@ struct SettingsSheet: View {
                     Button("閉じる") { dismiss() }
                 }
             }
-            .onAppear { viewModel.loadTags() }
+            .onAppear { viewModel.loadAll() }
             .sheet(isPresented: $showTagForm) {
                 TagFormSheet(
                     tag: editingTag,
@@ -59,6 +93,13 @@ struct SettingsSheet: View {
                     tag: tag,
                     onSave: { viewModel.loadTags(); editingTag = nil },
                     onDismiss: { editingTag = nil }
+                )
+            }
+            .sheet(isPresented: $showPayRateForm) {
+                PayRateFormSheet(
+                    payRate: editingPayRate,
+                    onSave: { viewModel.loadPayRates(); showPayRateForm = false; editingPayRate = nil },
+                    onDismiss: { showPayRateForm = false; editingPayRate = nil }
                 )
             }
             .alert("エラー", isPresented: .constant(viewModel.errorMessage != nil)) {
@@ -180,6 +221,114 @@ struct TagFormSheet: View {
         guard let tag else { return }
         let vm = SettingsViewModel()
         let ok = await vm.deactivateTag(id: tag.id)
+        if ok { onSave(); dismiss() }
+        else { errorMessage = vm.errorMessage }
+    }
+}
+
+// MARK: - 時給（会社）追加・編集
+struct PayRateFormSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let payRate: PayRate?
+    let onSave: () -> Void
+    let onDismiss: () -> Void
+
+    @State private var title: String = ""
+    @State private var hourlyWageText: String = ""
+    @State private var isSaving = false
+    @State private var showDeleteConfirm = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("会社名") {
+                    TextField("例: コンビニA", text: $title)
+                }
+                Section("時給（円）") {
+                    TextField("0", text: $hourlyWageText)
+                        .keyboardType(.decimalPad)
+                }
+                if payRate != nil {
+                    Section {
+                        Button(role: .destructive) { showDeleteConfirm = true } label: {
+                            Text("この会社を削除")
+                        }
+                    }
+                }
+            }
+            .navigationTitle(payRate == nil ? "会社を追加" : "会社を編集")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { onDismiss(); dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(payRate == nil ? "追加" : "更新") {
+                        Task { await save() }
+                    }
+                    .disabled(!canSave || isSaving)
+                }
+            }
+            .onAppear {
+                if let payRate {
+                    title = payRate.title
+                    hourlyWageText = "\(payRate.hourlyWage)"
+                } else {
+                    title = ""
+                    hourlyWageText = ""
+                }
+            }
+            .alert("会社を削除", isPresented: $showDeleteConfirm) {
+                Button("キャンセル", role: .cancel) {}
+                Button("削除", role: .destructive) {
+                    Task { await deletePayRate() }
+                }
+            } message: {
+                Text("この会社を削除しますか？")
+            }
+            .alert("エラー", isPresented: .constant(errorMessage != nil)) {
+                Button("OK") { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
+        }
+    }
+
+    private var canSave: Bool {
+        let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return false }
+        return parsedHourlyWage != nil
+    }
+
+    private var parsedHourlyWage: Decimal? {
+        let trimmed = hourlyWageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let d = Decimal(string: trimmed), d >= 0 else { return nil }
+        return d
+    }
+
+    private func save() async {
+        guard let wage = parsedHourlyWage else { return }
+        let vm = SettingsViewModel()
+        isSaving = true
+        defer { isSaving = false }
+        if let payRate {
+            var p = payRate
+            p.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            p.hourlyWage = wage
+            let ok = await vm.updatePayRate(p)
+            if ok { onSave(); dismiss() }
+            else { errorMessage = vm.errorMessage }
+        } else {
+            let ok = await vm.addPayRate(title: title.trimmingCharacters(in: .whitespacesAndNewlines), hourlyWage: wage)
+            if ok { onSave(); dismiss() }
+            else { errorMessage = vm.errorMessage }
+        }
+    }
+
+    private func deletePayRate() async {
+        guard let payRate else { return }
+        let vm = SettingsViewModel()
+        let ok = await vm.deactivatePayRate(id: payRate.id)
         if ok { onSave(); dismiss() }
         else { errorMessage = vm.errorMessage }
     }

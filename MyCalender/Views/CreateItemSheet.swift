@@ -22,10 +22,32 @@ struct CreateItemSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Picker("種類", selection: $kind) {
-                    ForEach(CreateItemKind.allCases) { k in
-                        Text(k.rawValue).tag(k)
+                Section("種類") {
+                    HStack(spacing: 8) {
+                        ForEach(CreateItemKind.allCases) { k in
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    kind = k
+                                }
+                            } label: {
+                                Text(k.rawValue)
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        kind == k
+                                            ? Color.accentColor
+                                            : Color(.systemGray5).opacity(0.6),
+                                        in: RoundedRectangle(cornerRadius: 8)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
+                    .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                    .listRowBackground(Color.clear)
                 }
 
                 switch kind {
@@ -39,7 +61,7 @@ struct CreateItemSheet: View {
                     }
                 }
             }
-            .navigationTitle("追加")
+            .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("閉じる") { dismiss() }
@@ -82,6 +104,7 @@ struct CreateItemSheet: View {
                     }
                 }
             }
+            .navigationTitle("予定の追加")
             .onAppear {
                 let date = initialDate ?? Date()
                 if eventViewModel == nil {
@@ -91,6 +114,7 @@ struct CreateItemSheet: View {
                 if workShiftViewModel == nil {
                     workShiftViewModel = CreateWorkShiftViewModel(initialDate: date)
                     workShiftViewModel?.loadTags()
+                    workShiftViewModel?.loadPayRates()
                 }
             }
             .sheet(isPresented: $showSettingsSheet) {
@@ -100,6 +124,7 @@ struct CreateItemSheet: View {
                 if !isShowing {
                     eventViewModel?.loadTags()
                     workShiftViewModel?.loadTags()
+                    workShiftViewModel?.loadPayRates()
                 }
             }
             .alert("エラー", isPresented: $showErrorAlert) {
@@ -123,7 +148,7 @@ private struct CreateEventForm: View {
             TextField("タイトル", text: $viewModel.title)
             DatePicker("開始", selection: $viewModel.startAt, displayedComponents: [.date, .hourAndMinute])
             DatePicker("終了", selection: $viewModel.endAt, displayedComponents: [.date, .hourAndMinute])
-            TextField("メモ（任意）", text: $viewModel.note, axis: .vertical)
+            TextField("メモ", text: $viewModel.note, axis: .vertical)
                 .lineLimit(3...6)
         }
         Section("タグ") {
@@ -168,6 +193,31 @@ private struct CreateWorkShiftForm: View {
                 Text("固定給").tag(WorkPayType.fixed)
             }
             .pickerStyle(.segmented)
+            if viewModel.payType == .hourly {
+                if viewModel.payRates.isEmpty {
+                    Text("会社がありません。設定から追加して時給を設定できます。")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(viewModel.payRates) { rate in
+                        Button {
+                            viewModel.selectedPayRateId = viewModel.selectedPayRateId == rate.id ? nil : rate.id
+                        } label: {
+                            HStack {
+                                Text(rate.title)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Text("¥\(NSDecimalNumber(decimal: rate.hourlyWage).stringValue)/時")
+                                    .foregroundStyle(.secondary)
+                                    .font(.subheadline)
+                                if viewModel.selectedPayRateId == rate.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.tint)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             if viewModel.payType == .fixed {
                 TextField("金額", text: $viewModel.fixedPayText)
                     .keyboardType(.decimalPad)

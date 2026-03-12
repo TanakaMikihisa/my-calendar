@@ -41,6 +41,7 @@ struct DayView: View {
                             events: viewModel.events,
                             workShifts: viewModel.workShifts,
                             tags: viewModel.tags,
+                            payRates: viewModel.payRates,
                             onSelectEvent: { selectedDetailItem = .event($0) },
                             onSelectWorkShift: { selectedDetailItem = .workShift($0) },
                             onDeleteEvent: { viewModel.deleteEvent($0) },
@@ -53,6 +54,7 @@ struct DayView: View {
                             events: viewModel.events,
                             workShifts: viewModel.workShifts,
                             tags: viewModel.tags,
+                            payRates: viewModel.payRates,
                             selectedDetailItem: $selectedDetailItem,
                             onDeleteEvent: { viewModel.deleteEvent($0) },
                             onDeleteWorkShift: { viewModel.deleteWorkShift($0) }
@@ -90,10 +92,10 @@ struct DayView: View {
                 }
             }
             .navigationDestination(for: ScheduleDetailItem.self) { item in
-                ScheduleDetailView(item: item, tags: viewModel.tags, onRefresh: { viewModel.refresh() }, onDismiss: nil)
+                ScheduleDetailView(item: item, tags: viewModel.tags, payRates: viewModel.payRates, onRefresh: { viewModel.refresh() }, onDismiss: nil)
             }
             .navigationDestination(item: $selectedDetailItem) { item in
-                ScheduleDetailView(item: item, tags: viewModel.tags, onRefresh: { viewModel.refresh() }, onDismiss: { selectedDetailItem = nil })
+                ScheduleDetailView(item: item, tags: viewModel.tags, payRates: viewModel.payRates, onRefresh: { viewModel.refresh() }, onDismiss: { selectedDetailItem = nil })
             }
             .sheet(isPresented: $isPresentingCreateSheet) {
                 CreateItemSheet(initialDate: viewModel.date, onSaved: { viewModel.refresh() })

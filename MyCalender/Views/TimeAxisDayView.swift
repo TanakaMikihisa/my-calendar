@@ -7,6 +7,7 @@ struct TimeAxisDayView: View {
     var events: [Event]
     var workShifts: [WorkShift]
     var tags: [Tag]
+    var payRates: [PayRate]
     var onSelectEvent: ((Event) -> Void)?
     var onSelectWorkShift: ((WorkShift) -> Void)?
     var onDeleteEvent: ((Event) -> Void)?
@@ -25,11 +26,13 @@ struct TimeAxisDayView: View {
         ScrollView(.vertical, showsIndicators: true) {
             ZStack(alignment: .topLeading) {
                 timeRuler
+                timeGridLines
                 eventAndShiftBlocks
                 currentTimeLine
             }
             .frame(height: timelineTotalHeight)
             .padding(.leading, 20)
+            .padding(.trailing, 7)
         }
     }
 
@@ -54,6 +57,24 @@ struct TimeAxisDayView: View {
         }
     }
 
+    /// 時間軸の区切りごとの薄い灰色の水平線（VStack でレイアウトし 0:00 から全線を確実に表示）
+    private var timeGridLines: some View {
+        VStack(spacing: 0) {
+            ForEach(0..<blocksPerDay, id: \.self) { _ in
+                Rectangle()
+                    .fill(Color(.systemGray5).opacity(0.6))
+                    .frame(height: 1.5)
+                    .frame(maxWidth: .infinity)
+                Spacer()
+                    .frame(height: pointsPerBlock - 1)
+            }
+        }
+        .frame(height: timelineTotalHeight)
+        .frame(maxWidth: .infinity)
+        .padding(.leading, 52)
+        .allowsHitTesting(false)
+    }
+
     private var eventAndShiftBlocks: some View {
         let eventBlocks = events.map { event in
             BlockInfo(
@@ -74,7 +95,7 @@ struct TimeAxisDayView: View {
                 id: shift.id,
                 start: clamp(shift.startAt, min: dayStart, max: dayEnd),
                 end: clamp(shift.endAt, min: dayStart, max: dayEnd),
-                title: "勤務",
+                title: shift.displayTitle(payRates: payRates),
                 note: nil,
                 colorHex: "#F97316",
                 event: nil,
@@ -113,10 +134,10 @@ struct TimeAxisDayView: View {
                         }
                     } preview: {
                         if let e = block.event {
-                            ScheduleDetailView(item: .event(e), tags: tags, onRefresh: {}, onDismiss: nil)
+                            ScheduleDetailView(item: .event(e), tags: tags, payRates: payRates, onRefresh: {}, onDismiss: nil)
                                 .frame(width: 320, height: 400)
                         } else if let s = block.workShift {
-                            ScheduleDetailView(item: .workShift(s), tags: tags, onRefresh: {}, onDismiss: nil)
+                            ScheduleDetailView(item: .workShift(s), tags: tags, payRates: payRates, onRefresh: {}, onDismiss: nil)
                                 .frame(width: 320, height: 400)
                         }
                     }
@@ -284,5 +305,5 @@ private struct BlockInfo: Identifiable {
     ]
     let workShifts: [WorkShift] = []
     let tags = [Tag(id: "pt1", name: "仕事", colorHex: "#34C759", isActive: true, createdAt: .distantPast, updatedAt: .distantPast)]
-    return TimeAxisDayView(dayStart: today, unitMinutes: 60, events: events, workShifts: workShifts, tags: tags, onSelectEvent: nil, onSelectWorkShift: nil, onDeleteEvent: nil, onDeleteWorkShift: nil)
+    TimeAxisDayView(dayStart: today, unitMinutes: 60, events: events, workShifts: workShifts, tags: tags, payRates: [], onSelectEvent: nil, onSelectWorkShift: nil, onDeleteEvent: nil, onDeleteWorkShift: nil)
 }

@@ -7,6 +7,7 @@ struct ScheduleListView: View {
     var events: [Event]
     var workShifts: [WorkShift]
     var tags: [Tag]
+    var payRates: [PayRate]
     @Binding var selectedDetailItem: ScheduleDetailItem?
     var onDeleteEvent: ((Event) -> Void)?
     var onDeleteWorkShift: ((WorkShift) -> Void)?
@@ -27,17 +28,17 @@ struct ScheduleListView: View {
     }
 
     var body: some View {
-        List {
-            if sortedItems.isEmpty {
-                ContentUnavailableView(
-                    "予定がありません",
-                    systemImage: "calendar",
-                    description: Text("")
-                )
-            } else {
+        if sortedItems.isEmpty {
+            ContentUnavailableView(
+                "予定がありません",
+                systemImage: "calendar",
+                description: Text("")
+            )
+        } else {
+            List {
                 ForEach(sortedItems) { item in
                     NavigationLink(value: detailItem(for: item)) {
-                        ScheduleRowView(item: item, tags: tags)
+                        ScheduleRowView(item: item, tags: tags, payRates: payRates)
                     }
                     .contextMenu {
                         Button("詳細を開く") {
@@ -50,15 +51,15 @@ struct ScheduleListView: View {
                             }
                         }
                     } preview: {
-                        ScheduleDetailView(item: detailItem(for: item), tags: tags, onRefresh: {}, onDismiss: nil)
+                        ScheduleDetailView(item: detailItem(for: item), tags: tags, payRates: payRates, onRefresh: {}, onDismiss: nil)
                             .frame(width: 320, height: 400)
                     }
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color.white)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(Color.white)
     }
 }
 
@@ -107,6 +108,7 @@ private enum ScheduleItem: Identifiable {
 private struct ScheduleRowView: View {
     let item: ScheduleItem
     let tags: [Tag]
+    let payRates: [PayRate]
 
     private var tagColorHex: String? {
         switch item {
@@ -122,13 +124,20 @@ private struct ScheduleRowView: View {
         }
     }
 
+    private var rowTitle: String {
+        switch item {
+        case .event(let e): return e.title
+        case .workShift(let s): return s.displayTitle(payRates: payRates)
+        }
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 4)
                 .fill(scheduleBarColor(tagColorHex))
                 .frame(width: 4)
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.title)
+                Text(rowTitle)
                     .font(.headline)
                     .foregroundStyle(.black)
                 Text("\(item.startAt.formatted(date: .omitted, time: .shortened)) 〜 \(item.endAt.formatted(date: .omitted, time: .shortened))")
@@ -154,19 +163,3 @@ private struct ScheduleRowView: View {
     }
 }
 
-// MARK: - Preview
-#Preview {
-    let cal = Calendar.current
-    let today = cal.startOfDay(for: Date())
-    let dayEnd = cal.date(byAdding: .day, value: 1, to: today)!
-    let start1 = cal.date(bySettingHour: 9, minute: 0, second: 0, of: today)!
-    let end1 = cal.date(bySettingHour: 10, minute: 30, second: 0, of: today)!
-    let events = [
-        Event(id: "pe1", type: .normal, title: "プレビュー予定", startAt: start1, endAt: end1, note: "メモ", tagIds: ["pt1"], isActive: true, createdAt: .distantPast, updatedAt: .distantPast)
-    ]
-    let workShifts: [WorkShift] = []
-    let tags = [Tag(id: "pt1", name: "仕事", colorHex: "#34C759", isActive: true, createdAt: .distantPast, updatedAt: .distantPast)]
-    return NavigationStack {
-        ScheduleListView(dayStart: today, dayEnd: dayEnd, events: events, workShifts: workShifts, tags: tags, selectedDetailItem: .constant(nil), onDeleteEvent: nil, onDeleteWorkShift: nil)
-    }
-}

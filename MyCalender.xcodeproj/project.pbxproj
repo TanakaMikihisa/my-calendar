@@ -30,16 +30,66 @@
 		3530C0BC2F629EB4004AEA05 /* FirebaseRemoteConfig in Frameworks */ = {isa = PBXBuildFile; productRef = 3530C0BB2F629EB4004AEA05 /* FirebaseRemoteConfig */; };
 		3530C0BE2F629EB4004AEA05 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 3530C0BD2F629EB4004AEA05 /* FirebaseStorage */; };
 		3530C0C02F629EB4004AEA05 /* FirebaseStorageCombine-Community in Frameworks */ = {isa = PBXBuildFile; productRef = 3530C0BF2F629EB4004AEA05 /* FirebaseStorageCombine-Community */; };
+		357AFAEB2F631C45001CFB26 /* SwiftFormat in Frameworks */ = {isa = PBXBuildFile; productRef = 357AFAEA2F631C45001CFB26 /* SwiftFormat */; };
+		357AFAF92F632A3B001CFB26 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 357AFAF82F632A3B001CFB26 /* WidgetKit.framework */; };
+		357AFAFB2F632A3B001CFB26 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 357AFAFA2F632A3B001CFB26 /* SwiftUI.framework */; };
+		357AFB082F632A3C001CFB26 /* mycalenderwidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 357AFAF62F632A3B001CFB26 /* mycalenderwidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		357AFB062F632A3C001CFB26 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3530C07A2F629E3D004AEA05 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 357AFAF52F632A3B001CFB26;
+			remoteInfo = mycalenderwidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		357AFB0D2F632A3C001CFB26 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				357AFB082F632A3C001CFB26 /* mycalenderwidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		3530C0822F629E3D004AEA05 /* MyCalender.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyCalender.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		357AFAEE2F6329F2001CFB26 /* Shared */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Shared; sourceTree = "<group>"; };
+		357AFAF62F632A3B001CFB26 /* mycalenderwidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = mycalenderwidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		357AFAF82F632A3B001CFB26 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		357AFAFA2F632A3B001CFB26 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		357AFB092F632A3C001CFB26 /* Exceptions for "mycalenderwidget" folder in "mycalenderwidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 357AFAF52F632A3B001CFB26 /* mycalenderwidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		3530C0842F629E3D004AEA05 /* MyCalender */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MyCalender;
+			sourceTree = "<group>";
+		};
+		357AFAFC2F632A3B001CFB26 /* mycalenderwidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				357AFB092F632A3C001CFB26 /* Exceptions for "mycalenderwidget" folder in "mycalenderwidgetExtension" target */,
+			);
+			path = mycalenderwidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -50,6 +100,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3530C09E2F629EB3004AEA05 /* FirebaseAppDistribution-Beta in Frameworks */,
+				357AFAEB2F631C45001CFB26 /* SwiftFormat in Frameworks */,
 				3530C0AA2F629EB3004AEA05 /* FirebaseFirestore in Frameworks */,
 				3530C0A22F629EB3004AEA05 /* FirebaseAuthCombine-Community in Frameworks */,
 				3530C0B42F629EB4004AEA05 /* FirebaseInstallations in Frameworks */,
@@ -75,13 +126,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		357AFAF32F632A3B001CFB26 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				357AFAFB2F632A3B001CFB26 /* SwiftUI.framework in Frameworks */,
+				357AFAF92F632A3B001CFB26 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		3530C0792F629E3D004AEA05 = {
 			isa = PBXGroup;
 			children = (
+				357AFAEE2F6329F2001CFB26 /* Shared */,
 				3530C0842F629E3D004AEA05 /* MyCalender */,
+				357AFAFC2F632A3B001CFB26 /* mycalenderwidget */,
+				357AFAF72F632A3B001CFB26 /* Frameworks */,
 				3530C0832F629E3D004AEA05 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -90,8 +153,18 @@
 			isa = PBXGroup;
 			children = (
 				3530C0822F629E3D004AEA05 /* MyCalender.app */,
+				357AFAF62F632A3B001CFB26 /* mycalenderwidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		357AFAF72F632A3B001CFB26 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				357AFAF82F632A3B001CFB26 /* WidgetKit.framework */,
+				357AFAFA2F632A3B001CFB26 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -104,10 +177,12 @@
 				3530C07E2F629E3D004AEA05 /* Sources */,
 				3530C07F2F629E3D004AEA05 /* Frameworks */,
 				3530C0802F629E3D004AEA05 /* Resources */,
+				357AFB0D2F632A3C001CFB26 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				357AFB072F632A3C001CFB26 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				3530C0842F629E3D004AEA05 /* MyCalender */,
@@ -137,10 +212,33 @@
 				3530C0BB2F629EB4004AEA05 /* FirebaseRemoteConfig */,
 				3530C0BD2F629EB4004AEA05 /* FirebaseStorage */,
 				3530C0BF2F629EB4004AEA05 /* FirebaseStorageCombine-Community */,
+				357AFAEA2F631C45001CFB26 /* SwiftFormat */,
 			);
 			productName = MyCalender;
 			productReference = 3530C0822F629E3D004AEA05 /* MyCalender.app */;
 			productType = "com.apple.product-type.application";
+		};
+		357AFAF52F632A3B001CFB26 /* mycalenderwidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 357AFB0A2F632A3C001CFB26 /* Build configuration list for PBXNativeTarget "mycalenderwidgetExtension" */;
+			buildPhases = (
+				357AFAF22F632A3B001CFB26 /* Sources */,
+				357AFAF32F632A3B001CFB26 /* Frameworks */,
+				357AFAF42F632A3B001CFB26 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				357AFAFC2F632A3B001CFB26 /* mycalenderwidget */,
+			);
+			name = mycalenderwidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = mycalenderwidgetExtension;
+			productReference = 357AFAF62F632A3B001CFB26 /* mycalenderwidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -153,6 +251,9 @@
 				LastUpgradeCheck = 2630;
 				TargetAttributes = {
 					3530C0812F629E3D004AEA05 = {
+						CreatedOnToolsVersion = 26.3;
+					};
+					357AFAF52F632A3B001CFB26 = {
 						CreatedOnToolsVersion = 26.3;
 					};
 				};
@@ -168,6 +269,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				3530C0902F629EB3004AEA05 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				357AFAE92F631C45001CFB26 /* XCRemoteSwiftPackageReference "SwiftFormat" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3530C0832F629E3D004AEA05 /* Products */;
@@ -175,12 +277,20 @@
 			projectRoot = "";
 			targets = (
 				3530C0812F629E3D004AEA05 /* MyCalender */,
+				357AFAF52F632A3B001CFB26 /* mycalenderwidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		3530C0802F629E3D004AEA05 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		357AFAF42F632A3B001CFB26 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -197,7 +307,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		357AFAF22F632A3B001CFB26 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		357AFB072F632A3C001CFB26 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 357AFAF52F632A3B001CFB26 /* mycalenderwidgetExtension */;
+			targetProxy = 357AFB062F632A3C001CFB26 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		3530C08B2F629E3F004AEA05 /* Debug */ = {
@@ -389,6 +514,68 @@
 			};
 			name = Release;
 		};
+		357AFB0B2F632A3C001CFB26 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = W8PA7WYQ5Z;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = mycalenderwidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = mycalenderwidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Tanaka.MyCalender.mycalenderwidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		357AFB0C2F632A3C001CFB26 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = W8PA7WYQ5Z;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = mycalenderwidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = mycalenderwidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.Tanaka.MyCalender.mycalenderwidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -410,6 +597,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		357AFB0A2F632A3C001CFB26 /* Build configuration list for PBXNativeTarget "mycalenderwidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				357AFB0B2F632A3C001CFB26 /* Debug */,
+				357AFB0C2F632A3C001CFB26 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -419,6 +615,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 12.10.0;
+			};
+		};
+		357AFAE92F631C45001CFB26 /* XCRemoteSwiftPackageReference "SwiftFormat" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/nicklockwood/SwiftFormat";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.60.1;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -538,6 +742,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 3530C0902F629EB3004AEA05 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = "FirebaseStorageCombine-Community";
+		};
+		357AFAEA2F631C45001CFB26 /* SwiftFormat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 357AFAE92F631C45001CFB26 /* XCRemoteSwiftPackageReference "SwiftFormat" */;
+			productName = SwiftFormat;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

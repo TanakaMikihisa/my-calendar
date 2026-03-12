@@ -3,10 +3,19 @@ import SwiftUI
 struct ScheduleDetailView: View {
     var item: ScheduleDetailItem
     var tags: [Tag]
+    var payRates: [PayRate] = []
     var onRefresh: () -> Void
     var onDismiss: (() -> Void)?
 
     @State private var showEditSheet = false
+
+    /// 表示用タイトル（勤務は会社名）
+    private var displayTitle: String {
+        switch item {
+        case .event(let e): return e.title
+        case .workShift(let s): return s.displayTitle(payRates: payRates)
+        }
+    }
 
     private var itemTags: [Tag] {
         switch item {
@@ -35,12 +44,12 @@ struct ScheduleDetailView: View {
                                 )
                         }
                     }
-                    .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
                     .listRowBackground(Color.clear)
                 }
             }
             Section {
-                LabeledContent("タイトル", value: item.title)
+                LabeledContent("タイトル", value: displayTitle)
                 LabeledContent("開始", value: item.startAt.formatted(date: .abbreviated, time: .shortened))
                 LabeledContent("終了", value: item.endAt.formatted(date: .abbreviated, time: .shortened))
             }
@@ -51,9 +60,10 @@ struct ScheduleDetailView: View {
             }
             if case .workShift(let shift) = item {
                 Section("給与") {
-                    LabeledContent("種別", value: shift.payType == .hourly ? "時給" : "固定給")
-                    if let fixed = shift.fixedPay {
-                        LabeledContent("金額", value: "\(fixed)")
+                    if shift.payType == .hourly, let id = shift.payRateId, let rate = payRates.first(where: { $0.id == id }) {
+                        LabeledContent("時給", value: "¥\(NSDecimalNumber(decimal: rate.hourlyWage).stringValue)/時")
+                    } else if let fixed = shift.fixedPay {
+                        LabeledContent("金額", value: "¥\(NSDecimalNumber(decimal: fixed).stringValue)")
                     }
                 }
             }
@@ -110,6 +120,6 @@ private extension ScheduleDetailView {
 
 #Preview {
     NavigationStack {
-        ScheduleDetailView(item: ScheduleDetailView.previewItem, tags: ScheduleDetailView.previewTags, onRefresh: {}, onDismiss: nil)
+        ScheduleDetailView(item: ScheduleDetailView.previewItem, tags: ScheduleDetailView.previewTags, payRates: [], onRefresh: {}, onDismiss: nil)
     }
 }
