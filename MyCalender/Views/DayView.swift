@@ -1,7 +1,14 @@
 import SwiftUI
 
+/// メイン画面の表示モード（イベント時間軸 / リスト / 天気時間軸）
+private enum DayViewMode {
+    case eventTimeline
+    case list
+    case weatherTimeline
+}
+
 struct DayView: View {
-    /// true = 時間軸, false = リスト
+    /// 時間軸 vs リストの選択（天気以外で永続化）
     @AppStorage(Constants.appStorageIsTimeAxisMode) private var isTimeAxisMode = true
     /// true = 1時間単位, false = 30分単位
     @AppStorage(Constants.appStorageIsOneHourUnit) private var isOneHourUnit = true
@@ -14,8 +21,11 @@ struct DayView: View {
     @State private var selectedDetailItem: ScheduleDetailItem?
     /// 横スワイプの現在値（正=右方向=前日、負=左方向=翌日）。矢印表示に使用
     @State private var swipeTranslation: CGFloat = 0
-    /// true = 時間軸でその日の天気・気温・降水確率をイベントの代わりに表示
-    @State private var isWeatherTimelineMode = false
+    /// 現在の表示モード。天気タップで .weatherTimeline、閉じると元のモードへ
+    @State private var displayMode: DayViewMode = .eventTimeline
+    /// 天気表示を開く前のモード（閉じるときに復元）
+    @State private var modeBeforeWeather: DayViewMode?
+    @State private var hasSyncedDisplayModeFromStorage = false
 
     private var dayStart: Date { viewModel.date.startOfDay() }
     private var dayEnd: Date {
@@ -45,17 +55,32 @@ struct DayView: View {
                         .padding(.leading, 16)
                         .padding(.top, 8)
                         .onTapGesture {
-                            isTimeAxisMode = true
+                            if displayMode == .weatherTimeline {
+                                let prev = modeBeforeWeather ?? .eventTimeline
+                                displayMode = prev
+                                modeBeforeWeather = nil
+                                isTimeAxisMode = (prev == .eventTimeline)
+                            } else {
+                                modeBeforeWeather = displayMode
+                                displayMode = .weatherTimeline
+                            }
                         }
                 }
                 .frame(height: isRainMode ? 112 : 64)
                 .onChange(of: viewModel.date) { _, _ in
                     viewModel.refresh()
                 }
+                .onAppear {
+                    if !hasSyncedDisplayModeFromStorage {
+                        hasSyncedDisplayModeFromStorage = true
+                        displayMode = isTimeAxisMode ? .eventTimeline : .list
+                    }
+                }
 
                 ZStack {
                     Group {
-                        if isTimeAxisMode {
+                        switch displayMode {
+                        case .eventTimeline:
                             TimeAxisDayView(
                                 dayStart: dayStart,
                                 unitMinutes: isOneHourUnit ? 60 : 30,
@@ -63,15 +88,12 @@ struct DayView: View {
                                 workShifts: viewModel.workShifts,
                                 tags: viewModel.tags,
                                 payRates: viewModel.payRates,
-                                isWeatherTimelineMode: isWeatherTimelineMode,
-                                weather: viewModel.todayWeather,
-                                hourlyWeather: viewModel.todayHourlyWeather,
                                 onSelectEvent: { selectedDetailItem = .event($0) },
                                 onSelectWorkShift: { selectedDetailItem = .workShift($0) },
                                 onDeleteEvent: { viewModel.deleteEvent($0) },
                                 onDeleteWorkShift: { viewModel.deleteWorkShift($0) }
                             )
-                        } else {
+                        case .list:
                             ScheduleListView(
                                 dayStart: dayStart,
                                 dayEnd: dayEnd,
@@ -83,10 +105,16 @@ struct DayView: View {
                                 onDeleteEvent: { viewModel.deleteEvent($0) },
                                 onDeleteWorkShift: { viewModel.deleteWorkShift($0) }
                             )
+                        case .weatherTimeline:
+                            WeatherTimelineView(
+                                dayStart: dayStart,
+                                weather: viewModel.todayWeather,
+                                hourlyWeather: viewModel.todayHourlyWeather
+                            )
                         }
                     }
                     .contentShape(Rectangle())
-                    .padding(.top, 16)
+                    .padding(.top, displayMode == .weatherTimeline ? 0 : 16)
 
                     // スワイプ方向の矢印インジケータ（横スワイプ中に表示）
                     swipeArrowOverlay
@@ -126,14 +154,22 @@ struct DayView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         withAnimation(.linear) {
-                            isTimeAxisMode.toggle()
-                            isWeatherTimelineMode = false
+                            switch displayMode {
+                            case .eventTimeline:
+                                displayMode = .list
+                                isTimeAxisMode = false
+                            case .list:
+                                displayMode = .eventTimeline
+                                isTimeAxisMode = true
+                            case .weatherTimeline:
+                                break
+                            }
                         }
                     } label: {
-                        Image(systemName: isTimeAxisMode ? "calendar" : "list.bullet")
+                        Image(systemName: displayMode == .list ? "list.bullet" : "calendar")
                     }
                 }
-                if isTimeAxisMode {
+                if displayMode == .eventTimeline {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
                             withAnimation {
