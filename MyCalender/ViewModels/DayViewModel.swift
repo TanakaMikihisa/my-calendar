@@ -8,12 +8,17 @@ final class DayViewModel {
     private let workShiftRepository: WorkShiftRepositoryProtocol
     private let tagRepository: TagRepositoryProtocol
     private let payRateRepository: PayRateRepositoryProtocol
+    private let weatherRepository: WeatherRepositoryProtocol
 
     var date: Date
     var events: [Event] = []
     var workShifts: [WorkShift] = []
     var tags: [Tag] = []
     var payRates: [PayRate] = []
+    /// 当日の天気（アプリ起動時に1回取得し、日付切り替えでもそのまま表示）
+    var todayWeather: Weather?
+    /// 当日の時間別天気（0〜23時）。todayWeather と同時に取得
+    var todayHourlyWeather: [HourlyWeatherItem] = []
     var isLoading: Bool = false
     var errorMessage: String?
 
@@ -23,7 +28,8 @@ final class DayViewModel {
         eventRepository: EventRepositoryProtocol = FirestoreEventRepository(),
         workShiftRepository: WorkShiftRepositoryProtocol = FirestoreWorkShiftRepository(),
         tagRepository: TagRepositoryProtocol = FirestoreTagRepository(),
-        payRateRepository: PayRateRepositoryProtocol = FirestorePayRateRepository()
+        payRateRepository: PayRateRepositoryProtocol = FirestorePayRateRepository(),
+        weatherRepository: WeatherRepositoryProtocol
     ) {
         self.date = date
         self.authRepository = authRepository
@@ -31,8 +37,10 @@ final class DayViewModel {
         self.workShiftRepository = workShiftRepository
         self.tagRepository = tagRepository
         self.payRateRepository = payRateRepository
+        self.weatherRepository = weatherRepository
     }
 
+    /// メイン画面用：その日の予定（イベント・シフト）だけ await し、isLoading を終了。tags / payRates / 天気はバックグラウンドで取得。
     func refresh() {
         Task { @MainActor in
             isLoading = true
@@ -45,16 +53,36 @@ final class DayViewModel {
 
                 async let eventsTask = eventRepository.listActiveOverlapping(uid: uid, start: start, end: end)
                 async let shiftsTask = workShiftRepository.listActiveOverlapping(uid: uid, start: start, end: end)
-                async let tagsTask = tagRepository.listActive(uid: uid)
-                async let payRatesTask = payRateRepository.listActive(uid: uid)
 
                 self.events = try await eventsTask
                 self.workShifts = try await shiftsTask
-                self.tags = try await tagsTask
-                self.payRates = try await payRatesTask
                 self.errorMessage = nil
             } catch {
                 self.errorMessage = error.localizedDescription
+            }
+
+            loadTagsPayRatesAndWeatherInBackground()
+        }
+    }
+
+    /// tags / payRates / 天気は予定追加画面でも使うが、メイン表示用にバックグラウンドで取得（isLoading は立てない）
+    private func loadTagsPayRatesAndWeatherInBackground() {
+        Task { @MainActor in
+            do {
+                let uid = try await authRepository.ensureSignedInAnonymously()
+                async let tagsTask = tagRepository.listActive(uid: uid)
+                async let payRatesTask = payRateRepository.listActive(uid: uid)
+                self.tags = try await tagsTask
+                self.payRates = try await payRatesTask
+            } catch {
+                // メインの予定表示には不要なのでエラーは握りつぶす
+            }
+
+            // 天気は当日分をアプリ起動時のみ取得（未取得のときだけ）
+            if self.todayWeather == nil, self.todayHourlyWeather.isEmpty,
+               let (w, hourly) = try? await weatherRepository.fetchTodayWeatherWithHourly() {
+                self.todayWeather = w
+                self.todayHourlyWeather = hourly
             }
         }
     }

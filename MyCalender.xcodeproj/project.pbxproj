@@ -76,11 +76,21 @@
 			);
 			target = 357AFAF52F632A3B001CFB26 /* mycalenderwidgetExtension */;
 		};
+		357AFBD42F646670001CFB26 /* Exceptions for "MyCalender" folder in "MyCalender" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 3530C0812F629E3D004AEA05 /* MyCalender */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		3530C0842F629E3D004AEA05 /* MyCalender */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				357AFBD42F646670001CFB26 /* Exceptions for "MyCalender" folder in "MyCalender" target */,
+			);
 			path = MyCalender;
 			sourceTree = "<group>";
 		};
@@ -451,11 +461,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MyCalender/MyCalender.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = W8PA7WYQ5Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MyCalender/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "その日の天気を表示するために位置情報を使用します。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -469,6 +483,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.Tanaka.MyCalender;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -485,11 +500,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = MyCalender/MyCalender.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = W8PA7WYQ5Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MyCalender/Info.plist;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "その日の天気を表示するために位置情報を使用します。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -503,6 +522,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.Tanaka.MyCalender;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;

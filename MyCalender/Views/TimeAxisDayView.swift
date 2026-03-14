@@ -8,6 +8,11 @@ struct TimeAxisDayView: View {
     var workShifts: [WorkShift]
     var tags: [Tag]
     var payRates: [PayRate]
+    /// true のときイベントの代わりに当日の天気・気温・降水確率を1時間単位で表示
+    var isWeatherTimelineMode: Bool = false
+    var weather: Weather?
+    /// 当日0〜23時の時間別天気。24件あれば1時間単位で表示
+    var hourlyWeather: [HourlyWeatherItem] = []
     var onSelectEvent: ((Event) -> Void)?
     var onSelectWorkShift: ((WorkShift) -> Void)?
     var onDeleteEvent: ((Event) -> Void)?
@@ -27,7 +32,11 @@ struct TimeAxisDayView: View {
             ZStack(alignment: .topLeading) {
                 timeRuler
                 timeGridLines
-                eventAndShiftBlocks
+                if isWeatherTimelineMode, let weather {
+                    weatherTimelineBlock(weather: weather, hourly: hourlyWeather)
+                } else {
+                    eventAndShiftBlocks
+                }
                 currentTimeLine
             }
             .frame(height: timelineTotalHeight)
@@ -141,6 +150,52 @@ struct TimeAxisDayView: View {
                                 .frame(width: 320, height: 400)
                         }
                     }
+                }
+            }
+        }
+        .padding(.leading, 52)
+    }
+
+    /// 天気モード時：1時間単位で天気・気温・降水確率を横並びで表示（24行、背景なし）。hourly が24件あれば時間別、なければ当日の天気で統一
+    private func weatherTimelineBlock(weather: Weather, hourly: [HourlyWeatherItem]) -> some View {
+        let hoursCount = 24
+        let rowHeight = timelineTotalHeight / CGFloat(hoursCount)
+        let useHourly = hourly.count >= 24
+
+        return GeometryReader { geometry in
+            let contentWidth = geometry.size.width
+            ZStack(alignment: .topLeading) {
+                ForEach(0..<hoursCount, id: \.self) { index in
+                    let item: (symbol: String, temp: String, precip: String) = {
+                        if useHourly, index < hourly.count {
+                            let h = hourly[index]
+                            return (
+                                h.symbolName,
+                                h.temperatureCelsius.map { "\(Int(round($0)))℃" } ?? "—",
+                                h.precipitationChance.map { "\(Int(round($0 * 100)))%" } ?? "—"
+                            )
+                        }
+                        return (
+                            weather.symbolName,
+                            weather.temperatureCelsius.map { "\(Int(round($0)))℃" } ?? "—",
+                            weather.precipitationChance.map { "\(Int(round($0 * 100)))%" } ?? "—"
+                        )
+                    }()
+                    HStack(spacing: 12) {
+                        Image(systemName: item.symbol)
+                            .font(.system(size: 22))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 26, height: 22)
+                        Text(item.temp)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.primary)
+                        Text("降水 \(item.precip)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(width: contentWidth, height: rowHeight, alignment: .leading)
+                    .offset(x: 0, y: CGFloat(index) * rowHeight)
                 }
             }
         }
@@ -305,5 +360,5 @@ private struct BlockInfo: Identifiable {
     ]
     let workShifts: [WorkShift] = []
     let tags = [Tag(id: "pt1", name: "仕事", colorHex: "#34C759", isActive: true, createdAt: .distantPast, updatedAt: .distantPast)]
-    TimeAxisDayView(dayStart: today, unitMinutes: 60, events: events, workShifts: workShifts, tags: tags, payRates: [], onSelectEvent: nil, onSelectWorkShift: nil, onDeleteEvent: nil, onDeleteWorkShift: nil)
+    TimeAxisDayView(dayStart: today, unitMinutes: 60, events: events, workShifts: workShifts, tags: tags, payRates: [], isWeatherTimelineMode: false, weather: nil, onSelectEvent: nil, onSelectWorkShift: nil, onDeleteEvent: nil, onDeleteWorkShift: nil)
 }
