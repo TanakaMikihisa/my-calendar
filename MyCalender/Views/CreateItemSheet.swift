@@ -2,7 +2,7 @@ import SwiftUI
 
 enum CreateItemKind: String, CaseIterable, Identifiable {
     case event = "イベント"
-    case workShift = "バイト"
+    case workShift = "勤務"
 
     var id: String { rawValue }
 }
@@ -39,7 +39,7 @@ struct CreateItemSheet: View {
                                     .background(
                                         kind == k
                                             ? Color.accentColor
-                                            : Color(.systemGray5).opacity(0.6),
+                                            : Color(.systemGray4),
                                         in: RoundedRectangle(cornerRadius: 8)
                                     )
                             }
@@ -57,6 +57,127 @@ struct CreateItemSheet: View {
                     }
                 case .workShift:
                     if let workShiftViewModel {
+                        Section("作成方法") {
+                            HStack(spacing: 8) {
+                                ForEach(WorkShiftCreateMode.allCases) { mode in
+                                    Button {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            workShiftViewModel.workShiftCreateMode = mode
+                                        }
+                                    } label: {
+                                        Text(mode.rawValue)
+                                            .font(.subheadline)
+                                            .fontWeight(.medium)
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(
+                                                workShiftViewModel.workShiftCreateMode == mode
+                                                    ? Color.accentColor
+                                                    : Color(.systemGray4),
+                                                in: RoundedRectangle(cornerRadius: 8)
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                            .listRowBackground(Color.clear)
+                        }
+                        if workShiftViewModel.workShiftCreateMode == .newEntry {
+                            Section("給与") {
+                                HStack(spacing: 8) {
+                                    ForEach([WorkPayType.hourly, WorkPayType.fixed], id: \.self) { payType in
+                                        Button {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                workShiftViewModel.payType = payType
+                                            }
+                                        } label: {
+                                            Text(payType == .hourly ? "時給" : "固定給")
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                                .foregroundStyle(.white)
+                                                .padding(.horizontal, 12)
+                                                .padding(.vertical, 6)
+                                                .background(
+                                                    workShiftViewModel.payType == payType
+                                                        ? Color.accentColor
+                                                        : Color(.systemGray4),
+                                                    in: RoundedRectangle(cornerRadius: 8)
+                                                )
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                                .listRowBackground(Color.clear)
+                            }
+                            Section {
+                                if workShiftViewModel.payType == .hourly {
+                                    Group {
+                                        if workShiftViewModel.payRates.isEmpty {
+                                            Text("会社がありません。設定から追加してください。")
+                                                .foregroundStyle(.secondary)
+                                        } else {
+                                            ForEach(workShiftViewModel.payRates) { rate in
+                                                Button {
+                                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                                        workShiftViewModel.selectedPayRateId = workShiftViewModel.selectedPayRateId == rate.id ? nil : rate.id
+                                                        workShiftViewModel.selectedHourlyRateId = nil
+                                                    }
+                                                } label: {
+                                                    HStack {
+                                                        Text(rate.title)
+                                                            .foregroundStyle(.primary)
+                                                        Spacer()
+                                                        if workShiftViewModel.selectedPayRateId == rate.id {
+                                                            Image(systemName: "checkmark.circle.fill")
+                                                                .foregroundStyle(.tint)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            if workShiftViewModel.selectedPayRateId != nil {
+                                                if workShiftViewModel.hourlyRatesForSelectedCompany.isEmpty {
+                                                    Text("この会社に時給パターンがありません。設定で会社をタップして時給を追加してください。")
+                                                        .foregroundStyle(.secondary)
+                                                        .font(.caption)
+                                                } else {
+                                                    ForEach(workShiftViewModel.hourlyRatesForSelectedCompany) { rate in
+                                                        Button {
+                                                            workShiftViewModel.selectedHourlyRateId = workShiftViewModel.selectedHourlyRateId == rate.id ? nil : rate.id
+                                                        } label: {
+                                                            HStack {
+                                                                Text(rate.displayLabel())
+                                                                    .foregroundStyle(.primary)
+                                                                Spacer()
+                                                                if workShiftViewModel.selectedHourlyRateId == rate.id {
+                                                                    Image(systemName: "checkmark.circle.fill")
+                                                                        .foregroundStyle(.tint)
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    .animation(.easeInOut(duration: 0.2), value: workShiftViewModel.selectedPayRateId)
+                                }
+                                if workShiftViewModel.payType == .fixed {
+                                    TextField("会社名", text: Binding(
+                                        get: { workShiftViewModel.companyNameText },
+                                        set: { workShiftViewModel.companyNameText = $0 }
+                                    ))
+                                    .textContentType(.organizationName)
+                                    TextField("金額", text: Binding(
+                                        get: { workShiftViewModel.fixedPayText },
+                                        set: { workShiftViewModel.fixedPayText = $0 }
+                                    ))
+                                    .keyboardType(.decimalPad)
+                                }
+                            }
+                        }
                         CreateWorkShiftForm(viewModel: workShiftViewModel)
                     }
                 }
@@ -113,8 +234,9 @@ struct CreateItemSheet: View {
                 }
                 if workShiftViewModel == nil {
                     workShiftViewModel = CreateWorkShiftViewModel(initialDate: date)
-                    workShiftViewModel?.loadTags()
                     workShiftViewModel?.loadPayRates()
+                    workShiftViewModel?.loadHourlyRates()
+                    workShiftViewModel?.loadShiftTemplates()
                 }
             }
             .sheet(isPresented: $showSettingsSheet) {
@@ -123,8 +245,9 @@ struct CreateItemSheet: View {
             .onChange(of: showSettingsSheet) { _, isShowing in
                 if !isShowing {
                     eventViewModel?.loadTags()
-                    workShiftViewModel?.loadTags()
                     workShiftViewModel?.loadPayRates()
+                    workShiftViewModel?.loadHourlyRates()
+                    workShiftViewModel?.loadShiftTemplates()
                 }
             }
             .alert("エラー", isPresented: $showErrorAlert) {
@@ -183,33 +306,69 @@ private struct CreateWorkShiftForm: View {
     @Bindable var viewModel: CreateWorkShiftViewModel
 
     var body: some View {
-        Section("勤務時間") {
-            DatePicker("開始", selection: $viewModel.startAt, displayedComponents: [.date, .hourAndMinute])
-            DatePicker("終了", selection: $viewModel.endAt, displayedComponents: [.date, .hourAndMinute])
-        }
-        Section("給与") {
-            Picker("種別", selection: $viewModel.payType) {
-                Text("時給").tag(WorkPayType.hourly)
-                Text("固定給").tag(WorkPayType.fixed)
-            }
-            .pickerStyle(.segmented)
-            if viewModel.payType == .hourly {
-                if viewModel.payRates.isEmpty {
-                    Text("会社がありません。設定から追加して時給を設定できます。")
+        switch viewModel.workShiftCreateMode {
+        case .fromTemplate:
+            Section("会社") {
+                if viewModel.payRatesWithTemplates.isEmpty {
+                    Text("シフトテンプレートがありません。設定で会社をタップしてシフトを追加してください。")
                         .foregroundStyle(.secondary)
+                } else if let selectedPayRateId = viewModel.selectedPayRateIdForTemplate,
+                          let company = viewModel.payRatesWithTemplates.first(where: { $0.id == selectedPayRateId }) {
+                    HStack {
+                        Text(company.title)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Button("会社を変更") {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                viewModel.selectedPayRateIdForTemplate = nil
+                                viewModel.selectedTemplateId = nil
+                            }
+                        }
+                        .font(.subheadline)
+                    }
+                    if viewModel.shiftTemplatesForSelectedCompany.isEmpty {
+                        Text("この会社にシフトがありません。設定でシフトを追加してください。")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(viewModel.shiftTemplatesForSelectedCompany) { template in
+                            Button {
+                                viewModel.selectedTemplateId = viewModel.selectedTemplateId == template.id ? nil : template.id
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(template.shiftName)
+                                            .foregroundStyle(.primary)
+                                        Text("\(template.startTime)〜\(template.endTime)")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        if let earnings = viewModel.templateEarningsDisplay(template) {
+                                            Text(earnings)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    Spacer()
+                                    if viewModel.selectedTemplateId == template.id {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(.tint)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else {
-                    ForEach(viewModel.payRates) { rate in
+                    ForEach(viewModel.payRatesWithTemplates) { rate in
                         Button {
-                            viewModel.selectedPayRateId = viewModel.selectedPayRateId == rate.id ? nil : rate.id
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                viewModel.selectedPayRateIdForTemplate = rate.id
+                                viewModel.selectedTemplateId = nil
+                            }
                         } label: {
                             HStack {
                                 Text(rate.title)
                                     .foregroundStyle(.primary)
                                 Spacer()
-                                Text("¥\(NSDecimalNumber(decimal: rate.hourlyWage).stringValue)/時")
-                                    .foregroundStyle(.secondary)
-                                    .font(.subheadline)
-                                if viewModel.selectedPayRateId == rate.id {
+                                if viewModel.selectedPayRateIdForTemplate == rate.id {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(.tint)
                                 }
@@ -218,34 +377,13 @@ private struct CreateWorkShiftForm: View {
                     }
                 }
             }
-            if viewModel.payType == .fixed {
-                TextField("金額", text: $viewModel.fixedPayText)
-                    .keyboardType(.decimalPad)
+            Section("日付") {
+                DatePicker("勤務日", selection: $viewModel.workShiftDate, displayedComponents: .date)
             }
-        }
-        Section("タグ") {
-            if viewModel.tags.isEmpty {
-                Text("タグがありません。設定から追加できます。")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(viewModel.tags) { tag in
-                    Button {
-                        viewModel.toggleTag(tag.id)
-                    } label: {
-                        HStack {
-                            Circle()
-                                .fill(Color.from(hex: tag.colorHex))
-                                .frame(width: 20, height: 20)
-                            Text(tag.name)
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            if viewModel.selectedTagIds.contains(tag.id) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.tint)
-                            }
-                        }
-                    }
-                }
+        case .newEntry:
+            Section("勤務時間") {
+                DatePicker("開始", selection: $viewModel.startAt, displayedComponents: [.date, .hourAndMinute])
+                DatePicker("終了", selection: $viewModel.endAt, displayedComponents: [.date, .hourAndMinute])
             }
         }
     }

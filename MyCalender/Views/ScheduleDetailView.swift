@@ -4,6 +4,8 @@ struct ScheduleDetailView: View {
     var item: ScheduleDetailItem
     var tags: [Tag]
     var payRates: [PayRate] = []
+    var hourlyRates: [HourlyRate] = []
+    var shiftTemplates: [ShiftTemplate] = []
     var onRefresh: () -> Void
     var onDismiss: (() -> Void)?
 
@@ -15,6 +17,14 @@ struct ScheduleDetailView: View {
         case .event(let e): return e.title
         case .workShift(let s): return s.displayTitle(payRates: payRates)
         }
+    }
+
+    /// 勤務でテンプレから作成している場合のシフト（なければ nil）
+    private var workShiftTemplateName: String? {
+        guard case .workShift(let s) = item,
+              let tid = s.templateId,
+              let t = shiftTemplates.first(where: { $0.id == tid }) else { return nil }
+        return t.shiftName.isEmpty ? nil : t.shiftName
     }
 
     private var itemTags: [Tag] {
@@ -49,7 +59,14 @@ struct ScheduleDetailView: View {
                 }
             }
             Section {
-                LabeledContent("タイトル", value: displayTitle)
+                if case .workShift = item {
+                    LabeledContent("会社名", value: displayTitle)
+                    if let name = workShiftTemplateName {
+                        LabeledContent("シフト", value: name)
+                    }
+                } else {
+                    LabeledContent("タイトル", value: displayTitle)
+                }
                 LabeledContent("開始", value: item.startAt.formatted(date: .abbreviated, time: .shortened))
                 LabeledContent("終了", value: item.endAt.formatted(date: .abbreviated, time: .shortened))
             }
@@ -58,13 +75,10 @@ struct ScheduleDetailView: View {
                     Text(note)
                 }
             }
-            if case .workShift(let shift) = item {
+            if case .workShift(let shift) = item,
+               let total = shift.totalEarnings(hourlyRates: hourlyRates, payRates: payRates) {
                 Section("給与") {
-                    if shift.payType == .hourly, let id = shift.payRateId, let rate = payRates.first(where: { $0.id == id }) {
-                        LabeledContent("時給", value: "¥\(NSDecimalNumber(decimal: rate.hourlyWage).stringValue)/時")
-                    } else if let fixed = shift.fixedPay {
-                        LabeledContent("金額", value: "¥\(NSDecimalNumber(decimal: fixed).stringValue)")
-                    }
+                    LabeledContent("合計", value: "¥\(NSDecimalNumber(decimal: total).stringValue)")
                 }
             }
         }
@@ -120,6 +134,6 @@ private extension ScheduleDetailView {
 
 #Preview {
     NavigationStack {
-        ScheduleDetailView(item: ScheduleDetailView.previewItem, tags: ScheduleDetailView.previewTags, payRates: [], onRefresh: {}, onDismiss: nil)
+        ScheduleDetailView(item: ScheduleDetailView.previewItem, tags: ScheduleDetailView.previewTags, payRates: [], hourlyRates: [], onRefresh: {}, onDismiss: nil)
     }
 }

@@ -1,10 +1,9 @@
 import SwiftUI
 
-/// メイン画面の表示モード（イベント時間軸 / リスト / 天気時間軸）
+/// メイン画面の表示モード（イベント時間軸 / リスト）
 private enum DayViewMode {
     case eventTimeline
     case list
-    case weatherTimeline
 }
 
 struct DayView: View {
@@ -21,11 +20,9 @@ struct DayView: View {
     @State private var selectedDetailItem: ScheduleDetailItem?
     /// 横スワイプの現在値（正=右方向=前日、負=左方向=翌日）。矢印表示に使用
     @State private var swipeTranslation: CGFloat = 0
-    /// 現在の表示モード。天気タップで .weatherTimeline、閉じると元のモードへ
     @State private var displayMode: DayViewMode = .eventTimeline
-    /// 天気表示を開く前のモード（閉じるときに復元）
-    @State private var modeBeforeWeather: DayViewMode?
     @State private var hasSyncedDisplayModeFromStorage = false
+    @State private var showWeatherSheet = false
 
     private var dayStart: Date { viewModel.date.startOfDay() }
     private var dayEnd: Date {
@@ -54,17 +51,7 @@ struct DayView: View {
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .padding(.leading, 16)
                         .padding(.top, 8)
-                        .onTapGesture {
-                            if displayMode == .weatherTimeline {
-                                let prev = modeBeforeWeather ?? .eventTimeline
-                                displayMode = prev
-                                modeBeforeWeather = nil
-                                isTimeAxisMode = (prev == .eventTimeline)
-                            } else {
-                                modeBeforeWeather = displayMode
-                                displayMode = .weatherTimeline
-                            }
-                        }
+                        .onTapGesture { showWeatherSheet = true }
                 }
                 .frame(height: isRainMode ? 112 : 64)
                 .onChange(of: viewModel.date) { _, _ in
@@ -88,6 +75,8 @@ struct DayView: View {
                                 workShifts: viewModel.workShifts,
                                 tags: viewModel.tags,
                                 payRates: viewModel.payRates,
+                                hourlyRates: viewModel.hourlyRates,
+                                shiftTemplates: viewModel.shiftTemplates,
                                 onSelectEvent: { selectedDetailItem = .event($0) },
                                 onSelectWorkShift: { selectedDetailItem = .workShift($0) },
                                 onDeleteEvent: { viewModel.deleteEvent($0) },
@@ -101,20 +90,16 @@ struct DayView: View {
                                 workShifts: viewModel.workShifts,
                                 tags: viewModel.tags,
                                 payRates: viewModel.payRates,
+                                hourlyRates: viewModel.hourlyRates,
+                                shiftTemplates: viewModel.shiftTemplates,
                                 selectedDetailItem: $selectedDetailItem,
                                 onDeleteEvent: { viewModel.deleteEvent($0) },
                                 onDeleteWorkShift: { viewModel.deleteWorkShift($0) }
                             )
-                        case .weatherTimeline:
-                            WeatherTimelineView(
-                                dayStart: dayStart,
-                                weather: viewModel.todayWeather,
-                                hourlyWeather: viewModel.todayHourlyWeather
-                            )
                         }
                     }
                     .contentShape(Rectangle())
-                    .padding(.top, displayMode == .weatherTimeline ? 0 : 16)
+                    .padding(.top, 16)
 
                     // スワイプ方向の矢印インジケータ（横スワイプ中に表示）
                     swipeArrowOverlay
@@ -161,8 +146,6 @@ struct DayView: View {
                             case .list:
                                 displayMode = .eventTimeline
                                 isTimeAxisMode = true
-                            case .weatherTimeline:
-                                break
                             }
                         }
                     } label: {
@@ -189,13 +172,22 @@ struct DayView: View {
                 }
             }
             .navigationDestination(for: ScheduleDetailItem.self) { item in
-                ScheduleDetailView(item: item, tags: viewModel.tags, payRates: viewModel.payRates, onRefresh: { viewModel.refresh() }, onDismiss: nil)
+                ScheduleDetailView(item: item, tags: viewModel.tags, payRates: viewModel.payRates, hourlyRates: viewModel.hourlyRates, shiftTemplates: viewModel.shiftTemplates, onRefresh: { viewModel.refresh() }, onDismiss: nil)
             }
             .navigationDestination(item: $selectedDetailItem) { item in
-                ScheduleDetailView(item: item, tags: viewModel.tags, payRates: viewModel.payRates, onRefresh: { viewModel.refresh() }, onDismiss: { selectedDetailItem = nil })
+                ScheduleDetailView(item: item, tags: viewModel.tags, payRates: viewModel.payRates, hourlyRates: viewModel.hourlyRates, shiftTemplates: viewModel.shiftTemplates, onRefresh: { viewModel.refresh() }, onDismiss: { selectedDetailItem = nil })
             }
             .sheet(isPresented: $isPresentingCreateSheet) {
                 CreateItemSheet(initialDate: viewModel.date, onSaved: { viewModel.refresh() })
+            }
+            .sheet(isPresented: $showWeatherSheet) {
+                WeatherTimelineView(
+                    dayStart: dayStart,
+                    weather: viewModel.todayWeather,
+                    hourlyWeather: viewModel.todayHourlyWeather
+                )
+                .presentationDetents([.fraction(0.2)])
+                .presentationDragIndicator(.visible)
             }
             .onChange(of: viewModel.errorMessage) { _, new in
                 if new != nil {
@@ -237,9 +229,7 @@ struct DayView: View {
     private var weatherRowStaticView: some View {
         HStack(spacing: 12) {
             if let w = viewModel.todayWeather {
-                Image(systemName: w.symbolName)
-                    .font(.system(size: 48))
-                    .foregroundStyle(.secondary)
+                ColoredWeatherSymbolView(symbolName: w.symbolName, fontSize: 48)
                     .frame(width: 48, height: 48)
                 if let temp = w.temperatureCelsius {
                     Text("\(Int(round(temp)))℃")
@@ -349,9 +339,7 @@ private struct WeatherRowMarqueeView: View {
             HStack(spacing: 0) {
                 ForEach(0..<3, id: \.self) { _ in
                     HStack(spacing: 12) {
-                        Image(systemName: symbolName)
-                            .font(.system(size: 48))
-                            .foregroundStyle(.secondary)
+                        ColoredWeatherSymbolView(symbolName: symbolName, fontSize: 48)
                             .frame(width: 48, height: 48)
                         Text(temperatureText)
                             .font(.system(size: 38, weight: .semibold))

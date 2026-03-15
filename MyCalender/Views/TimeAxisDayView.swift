@@ -8,6 +8,8 @@ struct TimeAxisDayView: View {
     var workShifts: [WorkShift]
     var tags: [Tag]
     var payRates: [PayRate]
+    var hourlyRates: [HourlyRate] = []
+    var shiftTemplates: [ShiftTemplate] = []
     var onSelectEvent: ((Event) -> Void)?
     var onSelectWorkShift: ((WorkShift) -> Void)?
     var onDeleteEvent: ((Event) -> Void)?
@@ -127,17 +129,21 @@ struct TimeAxisDayView: View {
                     .contextMenu {
                         if let e = block.event {
                             Button("詳細を開く") { onSelectEvent?(e) }
-                            Button("削除", role: .destructive) { onDeleteEvent?(e) }
+                            Button("削除", role: .destructive) {
+                                withAnimation(.easeOut(duration: 0.25)) { onDeleteEvent?(e) }
+                            }
                         } else if let s = block.workShift {
                             Button("詳細を開く") { onSelectWorkShift?(s) }
-                            Button("削除", role: .destructive) { onDeleteWorkShift?(s) }
+                            Button("削除", role: .destructive) {
+                                withAnimation(.easeOut(duration: 0.25)) { onDeleteWorkShift?(s) }
+                            }
                         }
                     } preview: {
                         if let e = block.event {
-                            ScheduleDetailView(item: .event(e), tags: tags, payRates: payRates, onRefresh: {}, onDismiss: nil)
+                            ScheduleDetailView(item: .event(e), tags: tags, payRates: payRates, hourlyRates: hourlyRates, shiftTemplates: shiftTemplates, onRefresh: {}, onDismiss: nil)
                                 .frame(width: 320, height: 400)
                         } else if let s = block.workShift {
-                            ScheduleDetailView(item: .workShift(s), tags: tags, payRates: payRates, onRefresh: {}, onDismiss: nil)
+                            ScheduleDetailView(item: .workShift(s), tags: tags, payRates: payRates, hourlyRates: hourlyRates, shiftTemplates: shiftTemplates, onRefresh: {}, onDismiss: nil)
                                 .frame(width: 320, height: 400)
                         }
                     }
@@ -305,5 +311,5 @@ private struct BlockInfo: Identifiable {
     ]
     let workShifts: [WorkShift] = []
     let tags = [Tag(id: "pt1", name: "仕事", colorHex: "#34C759", isActive: true, createdAt: .distantPast, updatedAt: .distantPast)]
-    TimeAxisDayView(dayStart: today, unitMinutes: 60, events: events, workShifts: workShifts, tags: tags, payRates: [], onSelectEvent: nil, onSelectWorkShift: nil, onDeleteEvent: nil, onDeleteWorkShift: nil)
+    TimeAxisDayView(dayStart: today, unitMinutes: 60, events: events, workShifts: workShifts, tags: tags, payRates: [], hourlyRates: [], onSelectEvent: nil, onSelectWorkShift: nil, onDeleteEvent: nil, onDeleteWorkShift: nil)
 }

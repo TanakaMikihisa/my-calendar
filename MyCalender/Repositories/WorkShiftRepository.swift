@@ -52,7 +52,9 @@ actor FirestoreWorkShiftRepository: WorkShiftRepositoryProtocol {
             endAt: try FirestoreMappers.date(data["endAt"], key: "endAt"),
             payType: payType,
             payRateId: data["payRateId"] as? String,
+            hourlyRateId: data["hourlyRateId"] as? String,
             fixedPay: try FirestoreMappers.decimal(data["fixedPay"], key: "fixedPay"),
+            companyName: data["companyName"] as? String,
             templateId: data["templateId"] as? String,
             tagIds: try FirestoreMappers.stringArray(data["tagIds"], key: "tagIds"),
             isActive: (data["isActive"] as? Bool) ?? true,
@@ -75,6 +77,8 @@ private extension WorkShift {
         ]
 
         if let payRateId { dict["payRateId"] = payRateId }
+        if let hourlyRateId { dict["hourlyRateId"] = hourlyRateId }
+        if let companyName { dict["companyName"] = companyName }
         if let templateId { dict["templateId"] = templateId }
         if let fixedPay { dict["fixedPay"] = (fixedPay as NSDecimalNumber) }
 

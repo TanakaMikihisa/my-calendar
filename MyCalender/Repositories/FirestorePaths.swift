@@ -6,6 +6,7 @@ enum FirestorePaths {
     static func workShifts(uid: String) -> String { "\(userRoot(uid: uid))/workShifts" }
     static func shiftTemplates(uid: String) -> String { "\(userRoot(uid: uid))/shiftTemplates" }
     static func payRates(uid: String) -> String { "\(userRoot(uid: uid))/payRates" }
+    static func hourlyRates(uid: String) -> String { "\(userRoot(uid: uid))/hourlyRates" }
     static func tags(uid: String) -> String { "\(userRoot(uid: uid))/tags" }
 }
 

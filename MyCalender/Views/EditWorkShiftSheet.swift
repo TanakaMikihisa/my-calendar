@@ -37,14 +37,12 @@ struct EditWorkShiftSheet: View {
                             ForEach(viewModel.payRates) { rate in
                                 Button {
                                     viewModel.selectedPayRateId = viewModel.selectedPayRateId == rate.id ? nil : rate.id
+                                    viewModel.selectedHourlyRateId = nil
                                 } label: {
                                     HStack {
                                         Text(rate.title)
                                             .foregroundStyle(.primary)
                                         Spacer()
-                                        Text("¥\(NSDecimalNumber(decimal: rate.hourlyWage).stringValue)/時")
-                                            .foregroundStyle(.secondary)
-                                            .font(.subheadline)
                                         if viewModel.selectedPayRateId == rate.id {
                                             Image(systemName: "checkmark.circle.fill")
                                                 .foregroundStyle(.tint)
@@ -52,9 +50,28 @@ struct EditWorkShiftSheet: View {
                                     }
                                 }
                             }
+                            if viewModel.selectedPayRateId != nil, !viewModel.hourlyRatesForSelectedCompany.isEmpty {
+                                ForEach(viewModel.hourlyRatesForSelectedCompany) { rate in
+                                    Button {
+                                        viewModel.selectedHourlyRateId = viewModel.selectedHourlyRateId == rate.id ? nil : rate.id
+                                    } label: {
+                                        HStack {
+                                            Text(rate.displayLabel())
+                                                .foregroundStyle(.primary)
+                                            Spacer()
+                                            if viewModel.selectedHourlyRateId == rate.id {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .foregroundStyle(.tint)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     if viewModel.payType == .fixed {
+                        TextField("会社名", text: $viewModel.companyNameText)
+                            .textContentType(.organizationName)
                         TextField("金額", text: $viewModel.fixedPayText)
                             .keyboardType(.decimalPad)
                     }
@@ -108,6 +125,7 @@ struct EditWorkShiftSheet: View {
             .onAppear {
                 viewModel.loadTags()
                 viewModel.loadPayRates()
+                viewModel.loadHourlyRates()
             }
             .alert("エラー", isPresented: $showErrorAlert) {
                 Button("OK") {
@@ -127,7 +145,7 @@ struct EditWorkShiftSheet: View {
     let today = cal.startOfDay(for: Date())
     let start = cal.date(bySettingHour: 9, minute: 0, second: 0, of: today)!
     let end = cal.date(bySettingHour: 17, minute: 0, second: 0, of: today)!
-    let shift = WorkShift(id: "ps1", startAt: start, endAt: end, payType: .hourly, payRateId: nil, fixedPay: nil, templateId: nil, tagIds: [], isActive: true, createdAt: .distantPast, updatedAt: .distantPast)
+    let shift = WorkShift(id: "ps1", startAt: start, endAt: end, payType: .hourly, payRateId: nil, hourlyRateId: nil, fixedPay: nil, companyName: nil, templateId: nil, tagIds: [], isActive: true, createdAt: .distantPast, updatedAt: .distantPast)
     let tags: [Tag] = []
     return EditWorkShiftSheet(shift: shift, tags: tags) {}
 }

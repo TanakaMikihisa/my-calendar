@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 1日の予定を時間順のリストで表示（イベント＋バイトを開始時刻でソート）
+/// 1日の予定を時間順のリストで表示（イベント＋勤務を開始時刻でソート）
 struct ScheduleListView: View {
     var dayStart: Date
     var dayEnd: Date
@@ -8,6 +8,8 @@ struct ScheduleListView: View {
     var workShifts: [WorkShift]
     var tags: [Tag]
     var payRates: [PayRate]
+    var hourlyRates: [HourlyRate] = []
+    var shiftTemplates: [ShiftTemplate] = []
     @Binding var selectedDetailItem: ScheduleDetailItem?
     var onDeleteEvent: ((Event) -> Void)?
     var onDeleteWorkShift: ((WorkShift) -> Void)?
@@ -45,13 +47,15 @@ struct ScheduleListView: View {
                             selectedDetailItem = detailItem(for: item)
                         }
                         Button("削除", role: .destructive) {
-                            switch item {
-                            case .event(let e): onDeleteEvent?(e)
-                            case .workShift(let s): onDeleteWorkShift?(s)
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                switch item {
+                                case .event(let e): onDeleteEvent?(e)
+                                case .workShift(let s): onDeleteWorkShift?(s)
+                                }
                             }
                         }
                     } preview: {
-                        ScheduleDetailView(item: detailItem(for: item), tags: tags, payRates: payRates, onRefresh: {}, onDismiss: nil)
+                        ScheduleDetailView(item: detailItem(for: item), tags: tags, payRates: payRates, hourlyRates: hourlyRates, shiftTemplates: shiftTemplates, onRefresh: {}, onDismiss: nil)
                             .frame(width: 320, height: 400)
                     }
                 }

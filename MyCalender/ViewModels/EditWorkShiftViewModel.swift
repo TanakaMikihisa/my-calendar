@@ -7,14 +7,19 @@ final class EditWorkShiftViewModel {
     private let workShiftRepository: WorkShiftRepositoryProtocol
     private let tagRepository: TagRepositoryProtocol
     private let payRateRepository: PayRateRepositoryProtocol
+    private let hourlyRateRepository: HourlyRateRepositoryProtocol
 
     let shiftId: String
     var startAt: Date
     var endAt: Date
     var payType: WorkPayType
     var fixedPayText: String
+    /// 固定給のときの会社名（入力用）
+    var companyNameText: String
     var selectedPayRateId: PayRateID?
+    var selectedHourlyRateId: HourlyRateID?
     var payRates: [PayRate] = []
+    var hourlyRates: [HourlyRate] = []
     var tags: [Tag] = []
     var selectedTagIds: Set<TagID>
     let createdAt: Date
@@ -27,18 +32,22 @@ final class EditWorkShiftViewModel {
         authRepository: AuthRepositoryProtocol = FirebaseAuthRepository(),
         workShiftRepository: WorkShiftRepositoryProtocol = FirestoreWorkShiftRepository(),
         tagRepository: TagRepositoryProtocol = FirestoreTagRepository(),
-        payRateRepository: PayRateRepositoryProtocol = FirestorePayRateRepository()
+        payRateRepository: PayRateRepositoryProtocol = FirestorePayRateRepository(),
+        hourlyRateRepository: HourlyRateRepositoryProtocol = FirestoreHourlyRateRepository()
     ) {
         self.authRepository = authRepository
         self.workShiftRepository = workShiftRepository
         self.tagRepository = tagRepository
         self.payRateRepository = payRateRepository
+        self.hourlyRateRepository = hourlyRateRepository
         self.shiftId = shift.id
         self.startAt = shift.startAt
         self.endAt = shift.endAt
         self.payType = shift.payType
         self.fixedPayText = shift.fixedPay.map { "\($0)" } ?? ""
+        self.companyNameText = shift.companyName ?? ""
         self.selectedPayRateId = shift.payRateId
+        self.selectedHourlyRateId = shift.hourlyRateId
         self.selectedTagIds = Set(shift.tagIds)
         self.createdAt = shift.createdAt
     }
@@ -65,6 +74,17 @@ final class EditWorkShiftViewModel {
         }
     }
 
+    func loadHourlyRates() {
+        Task { @MainActor in
+            do {
+                let uid = try await authRepository.ensureSignedInAnonymously()
+                hourlyRates = try await hourlyRateRepository.listActive(uid: uid)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
     func toggleTag(_ id: TagID) {
         if selectedTagIds.contains(id) {
             selectedTagIds.remove(id)
@@ -78,7 +98,15 @@ final class EditWorkShiftViewModel {
         if payType == .fixed {
             return parsedFixedPay != nil
         }
+        if payType == .hourly {
+            return selectedPayRateId != nil && selectedHourlyRateId != nil
+        }
         return true
+    }
+
+    var hourlyRatesForSelectedCompany: [HourlyRate] {
+        guard let payRateId = selectedPayRateId else { return [] }
+        return hourlyRates.filter { $0.payRateId == payRateId }
     }
 
     private var parsedFixedPay: Decimal? {
@@ -96,13 +124,17 @@ final class EditWorkShiftViewModel {
         do {
             let uid = try await authRepository.ensureSignedInAnonymously()
             let now = Date()
+            let trimmedCompany = companyNameText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let companyName: String? = payType == .fixed && !trimmedCompany.isEmpty ? trimmedCompany : nil
             let shift = WorkShift(
                 id: shiftId,
                 startAt: startAt,
                 endAt: endAt,
                 payType: payType,
                 payRateId: payType == .hourly ? selectedPayRateId : nil,
+                hourlyRateId: payType == .hourly ? selectedHourlyRateId : nil,
                 fixedPay: payType == .fixed ? parsedFixedPay : nil,
+                companyName: companyName,
                 templateId: nil,
                 tagIds: Array(selectedTagIds),
                 isActive: true,
