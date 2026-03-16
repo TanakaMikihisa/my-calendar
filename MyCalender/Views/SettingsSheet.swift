@@ -24,6 +24,7 @@ struct SettingsSheet: View {
                     } else {
                         ForEach(viewModel.tags) { tag in
                             Button {
+                                FeedBack().feedback(.medium)
                                 editingTag = tag
                             } label: {
                                 HStack(spacing: 12) {
@@ -38,6 +39,7 @@ struct SettingsSheet: View {
                         .onDelete(perform: deleteTags)
                     }
                     Button("タグを追加") {
+                        FeedBack().feedback(.medium)
                         editingTag = nil
                         showTagForm = true
                     }
@@ -55,6 +57,7 @@ struct SettingsSheet: View {
                     } else {
                         ForEach(viewModel.payRates) { payRate in
                             Button {
+                                FeedBack().feedback(.medium)
                                 selectedCompany = payRate
                             } label: {
                                 Text(payRate.title)
@@ -64,6 +67,7 @@ struct SettingsSheet: View {
                         .onDelete(perform: deletePayRates)
                     }
                     Button("会社を追加") {
+                        FeedBack().feedback(.medium)
                         showPayRateForm = true
                     }
                 }
@@ -71,7 +75,10 @@ struct SettingsSheet: View {
             .navigationTitle("設定")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("閉じる") { dismiss() }
+                    Button("閉じる") {
+                        FeedBack().feedback(.light)
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     EditButton()
@@ -114,7 +121,10 @@ struct SettingsSheet: View {
                 )
             }
             .alert("エラー", isPresented: .constant(viewModel.errorMessage != nil)) {
-                Button("OK") { viewModel.errorMessage = nil }
+                Button("OK") {
+                    FeedBack().feedback(.light)
+                    viewModel.errorMessage = nil
+                }
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
@@ -171,6 +181,7 @@ struct TagFormSheet: View {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
                         ForEach(colorOptions, id: \.self) { hex in
                             Button {
+                                FeedBack().feedback(.light)
                                 selectedColorHex = hex
                             } label: {
                                 Circle()
@@ -187,7 +198,10 @@ struct TagFormSheet: View {
                 }
                 if tag != nil {
                     Section {
-                        Button(role: .destructive) { showDeleteConfirm = true } label: {
+                        Button(role: .destructive) {
+                            FeedBack().feedback(.heavy)
+                            showDeleteConfirm = true
+                        } label: {
                             Text("このタグを削除")
                         }
                     }
@@ -196,10 +210,14 @@ struct TagFormSheet: View {
             .navigationTitle(tag == nil ? "タグを追加" : "タグを編集")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { onDismiss(); dismiss() }
+                    Button("キャンセル") {
+                        FeedBack().feedback(.light)
+                        onDismiss(); dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(tag == nil ? "追加" : "更新") {
+                        FeedBack().feedback(.medium)
                         Task { await save() }
                     }
                     .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
@@ -215,15 +233,19 @@ struct TagFormSheet: View {
                 }
             }
             .alert("タグを削除", isPresented: $showDeleteConfirm) {
-                Button("キャンセル", role: .cancel) {}
+                Button("キャンセル", role: .cancel) { FeedBack().feedback(.light) }
                 Button("削除", role: .destructive) {
+                    FeedBack().feedback(.heavy)
                     Task { await deleteTag() }
                 }
             } message: {
                 Text("このタグを削除しますか？")
             }
             .alert("エラー", isPresented: .constant(errorMessage != nil)) {
-                Button("OK") { errorMessage = nil }
+                Button("OK") {
+                    FeedBack().feedback(.light)
+                    errorMessage = nil
+                }
             } message: {
                 Text(errorMessage ?? "")
             }
@@ -283,7 +305,10 @@ struct PayRateFormSheet: View {
                             .keyboardType(.decimalPad)
                     }
                     Section {
-                        Button(role: .destructive) { showDeleteConfirm = true } label: {
+                        Button(role: .destructive) {
+                            FeedBack().feedback(.heavy)
+                            showDeleteConfirm = true
+                        } label: {
                             Text("この会社を削除")
                         }
                     }
@@ -292,10 +317,14 @@ struct PayRateFormSheet: View {
             .navigationTitle(payRate == nil ? "会社を追加" : "会社を編集")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { onDismiss(); dismiss() }
+                    Button("キャンセル") {
+                        FeedBack().feedback(.light)
+                        onDismiss(); dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(payRate == nil ? "追加" : "更新") {
+                        FeedBack().feedback(.medium)
                         Task { await save() }
                     }
                     .disabled(!canSave || isSaving)
@@ -311,15 +340,19 @@ struct PayRateFormSheet: View {
                 }
             }
             .alert("会社を削除", isPresented: $showDeleteConfirm) {
-                Button("キャンセル", role: .cancel) {}
+                Button("キャンセル", role: .cancel) { FeedBack().feedback(.light) }
                 Button("削除", role: .destructive) {
+                    FeedBack().feedback(.heavy)
                     Task { await deletePayRate() }
                 }
             } message: {
                 Text("この会社を削除しますか？")
             }
             .alert("エラー", isPresented: .constant(errorMessage != nil)) {
-                Button("OK") { errorMessage = nil }
+                Button("OK") {
+                    FeedBack().feedback(.light)
+                    errorMessage = nil
+                }
             } message: {
                 Text(errorMessage ?? "")
             }
@@ -407,6 +440,7 @@ struct CompanyDetailSheet: View {
                     } else {
                         ForEach(hourlyRates) { rate in
                             Button {
+                                FeedBack().feedback(.medium)
                                 editingHourlyRate = rate
                                 showHourlyRateForm = true
                             } label: {
@@ -417,6 +451,7 @@ struct CompanyDetailSheet: View {
                         .onDelete(perform: deleteHourlyRates)
                     }
                     Button("時給を追加") {
+                        FeedBack().feedback(.medium)
                         editingHourlyRate = nil
                         showHourlyRateForm = true
                     }
@@ -428,6 +463,7 @@ struct CompanyDetailSheet: View {
                     } else {
                         ForEach(shiftTemplates) { template in
                             Button {
+                                FeedBack().feedback(.medium)
                                 editingShiftTemplate = template
                                 showShiftTemplateForm = true
                             } label: {
@@ -435,16 +471,9 @@ struct CompanyDetailSheet: View {
                                     Text(template.shiftName)
                                         .foregroundStyle(.primary)
                                     Spacer()
-                                    Text("\(template.startTime)–\(template.endTime)")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    if template.payType == .hourly {
-                                        Text("時給")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    } else {
-                                        Text("固定")
-                                            .font(.caption2)
+                                    if let earnings = template.earningsDisplay(hourlyRates: hourlyRates) {
+                                        Text(earnings)
+                                            .font(.subheadline)
                                             .foregroundStyle(.secondary)
                                     }
                                 }
@@ -453,12 +482,16 @@ struct CompanyDetailSheet: View {
                         .onDelete(perform: deleteShiftTemplates)
                     }
                     Button("シフトを追加") {
+                        FeedBack().feedback(.medium)
                         editingShiftTemplate = nil
                         showShiftTemplateForm = true
                     }
                 }
                 Section {
-                    Button(role: .destructive) { showDeleteCompanyConfirm = true } label: {
+                    Button(role: .destructive) {
+                        FeedBack().feedback(.heavy)
+                        showDeleteCompanyConfirm = true
+                    } label: {
                         Text("この会社を削除")
                     }
                 }
@@ -468,6 +501,7 @@ struct CompanyDetailSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("閉じる") {
+                        FeedBack().feedback(.light)
                         Task {
                             let trimmed = companyName.trimmingCharacters(in: .whitespacesAndNewlines)
                             if companyFormCanSave && trimmed != company.title {
@@ -512,13 +546,19 @@ struct CompanyDetailSheet: View {
                 )
             }
             .alert("この会社を削除", isPresented: $showDeleteCompanyConfirm) {
-                Button("キャンセル", role: .cancel) {}
-                Button("削除", role: .destructive) { Task { await deleteCompany() } }
+                Button("キャンセル", role: .cancel) { FeedBack().feedback(.light) }
+                Button("削除", role: .destructive) {
+                    FeedBack().feedback(.heavy)
+                    Task { await deleteCompany() }
+                }
             } message: {
                 Text("会社とそのシフト設定が削除されます。")
             }
             .alert("エラー", isPresented: .constant(errorMessage != nil)) {
-                Button("OK") { errorMessage = nil }
+                Button("OK") {
+                    FeedBack().feedback(.light)
+                    errorMessage = nil
+                }
             } message: {
                 Text(errorMessage ?? "")
             }
@@ -603,7 +643,10 @@ struct HourlyRateFormSheet: View {
                 }
                 if hourlyRate != nil {
                     Section {
-                        Button(role: .destructive) { showDeleteConfirm = true } label: {
+                        Button(role: .destructive) {
+                            FeedBack().feedback(.heavy)
+                            showDeleteConfirm = true
+                        } label: {
                             Text("この時給を削除")
                         }
                     }
@@ -612,10 +655,14 @@ struct HourlyRateFormSheet: View {
             .navigationTitle(hourlyRate == nil ? "時給を追加" : "時給を編集")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { onDismiss(); dismiss() }
+                    Button("キャンセル") {
+                        FeedBack().feedback(.light)
+                        onDismiss(); dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(hourlyRate == nil ? "追加" : "更新") {
+                        FeedBack().feedback(.medium)
                         Task { await save() }
                     }
                     .disabled(parsedAmount == nil || isSaving)
@@ -625,13 +672,19 @@ struct HourlyRateFormSheet: View {
                 amountText = hourlyRate.map { "\($0.amount)" } ?? ""
             }
             .alert("この時給を削除", isPresented: $showDeleteConfirm) {
-                Button("キャンセル", role: .cancel) {}
-                Button("削除", role: .destructive) { Task { await deleteRate() } }
+                Button("キャンセル", role: .cancel) { FeedBack().feedback(.light) }
+                Button("削除", role: .destructive) {
+                    FeedBack().feedback(.heavy)
+                    Task { await deleteRate() }
+                }
             } message: {
                 Text("この時給を参照している勤務・シフトは、時給が未設定になります。")
             }
             .alert("エラー", isPresented: .constant(errorMessage != nil)) {
-                Button("OK") { errorMessage = nil }
+                Button("OK") {
+                    FeedBack().feedback(.light)
+                    errorMessage = nil
+                }
             } message: {
                 Text(errorMessage ?? "")
             }
@@ -689,13 +742,29 @@ struct ShiftTemplateFormSheet: View {
     @State private var shiftName: String = ""
     @State private var startTimeDate: Date = Date()
     @State private var endTimeDate: Date = Date()
+    @State private var breakMinutesText: String = ""
     @State private var payType: WorkPayType = .hourly
     @State private var fixedPayText: String = ""
     @State private var isSaving = false
     @State private var showDeleteConfirm = false
     @State private var errorMessage: String?
+    @FocusState private var isShiftNameFocused: Bool
 
     private var calendar: Calendar { .current }
+
+    private func applyTimeRangeFromShiftName() {
+        guard let range = shiftName.parsedTimeRange() else { return }
+        let base = Date()
+        if let start = calendar.date(bySettingHour: range.startHour, minute: range.startMinute, second: 0, of: base) {
+            startTimeDate = start
+        }
+        if var end = calendar.date(bySettingHour: range.endHour, minute: range.endMinute, second: 0, of: base) {
+            if end <= startTimeDate {
+                end = calendar.date(byAdding: .day, value: 1, to: end) ?? end
+            }
+            endTimeDate = end
+        }
+    }
     /// 実際に使う会社ID（固定時は fixedPayRateId、それ以外は選択値）
     private var effectivePayRateId: PayRateID {
         fixedPayRateId ?? selectedPayRateId
@@ -720,6 +789,7 @@ struct ShiftTemplateFormSheet: View {
                         } else {
                             ForEach(payRates) { rate in
                                 Button {
+                                    FeedBack().feedback(.light)
                                     selectedPayRateId = rate.id
                                     selectedHourlyRateId = ""
                                 } label: {
@@ -738,11 +808,18 @@ struct ShiftTemplateFormSheet: View {
                     }
                 }
                 Section("シフト") {
-                    TextField("例: 週末夜", text: $shiftName)
+                    TextField("例: 週末夜 9:00-17:00", text: $shiftName)
+                        .focused($isShiftNameFocused)
+                        .onSubmit { applyTimeRangeFromShiftName() }
+                }
+                .onChange(of: isShiftNameFocused) { old, new in
+                    if old == true && !new { applyTimeRangeFromShiftName() }
                 }
                 Section("勤務時間") {
                     DatePicker("開始", selection: $startTimeDate, displayedComponents: .hourAndMinute)
                     DatePicker("終了", selection: $endTimeDate, displayedComponents: .hourAndMinute)
+                    TextField("休憩時間（分）", text: $breakMinutesText)
+                        .keyboardType(.numberPad)
                 }
                 Section("給与") {
                     Picker("種別", selection: $payType) {
@@ -757,6 +834,7 @@ struct ShiftTemplateFormSheet: View {
                         } else {
                             ForEach(effectiveHourlyRates) { rate in
                                 Button {
+                                    FeedBack().feedback(.light)
                                     selectedHourlyRateId = selectedHourlyRateId == rate.id ? "" : rate.id
                                 } label: {
                                     HStack {
@@ -779,7 +857,10 @@ struct ShiftTemplateFormSheet: View {
                 }
                 if template != nil {
                     Section {
-                        Button(role: .destructive) { showDeleteConfirm = true } label: {
+                        Button(role: .destructive) {
+                            FeedBack().feedback(.heavy)
+                            showDeleteConfirm = true
+                        } label: {
                             Text("このテンプレートを削除")
                         }
                     }
@@ -788,10 +869,14 @@ struct ShiftTemplateFormSheet: View {
             .navigationTitle(template == nil ? "テンプレートを追加" : "テンプレートを編集")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { onDismiss(); dismiss() }
+                    Button("キャンセル") {
+                        FeedBack().feedback(.light)
+                        onDismiss(); dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(template == nil ? "追加" : "更新") {
+                        FeedBack().feedback(.medium)
                         Task { await save() }
                     }
                     .disabled(!canSave || isSaving)
@@ -804,6 +889,7 @@ struct ShiftTemplateFormSheet: View {
                     shiftName = t.shiftName
                     startTimeDate = Date.fromTimeString(t.startTime) ?? calendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
                     endTimeDate = Date.fromTimeString(t.endTime) ?? calendar.date(bySettingHour: 17, minute: 0, second: 0, of: Date()) ?? Date()
+                    breakMinutesText = t.breakMinutes > 0 ? "\(t.breakMinutes)" : ""
                     payType = t.payType
                     fixedPayText = t.fixedPay.map { "\($0)" } ?? ""
                 } else {
@@ -812,18 +898,25 @@ struct ShiftTemplateFormSheet: View {
                     shiftName = ""
                     startTimeDate = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
                     endTimeDate = calendar.date(bySettingHour: 17, minute: 0, second: 0, of: Date()) ?? Date()
+                    breakMinutesText = ""
                     payType = .hourly
                     fixedPayText = ""
                 }
             }
             .alert("テンプレートを削除", isPresented: $showDeleteConfirm) {
-                Button("キャンセル", role: .cancel) {}
-                Button("削除", role: .destructive) { Task { await deleteTemplate() } }
+                Button("キャンセル", role: .cancel) { FeedBack().feedback(.light) }
+                Button("削除", role: .destructive) {
+                    FeedBack().feedback(.heavy)
+                    Task { await deleteTemplate() }
+                }
             } message: {
                 Text("このテンプレートを削除しますか？")
             }
             .alert("エラー", isPresented: .constant(errorMessage != nil)) {
-                Button("OK") { errorMessage = nil }
+                Button("OK") {
+                    FeedBack().feedback(.light)
+                    errorMessage = nil
+                }
             } message: {
                 Text(errorMessage ?? "")
             }
@@ -848,6 +941,13 @@ struct ShiftTemplateFormSheet: View {
         return d
     }
 
+    /// 休憩時間（分）。未入力・不正値は 0。
+    private var parsedBreakMinutes: Int {
+        let t = breakMinutesText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty, let n = Int(t), n >= 0 else { return 0 }
+        return n
+    }
+
     private func save() async {
         let vm = SettingsViewModel()
         let s = shiftName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -862,6 +962,7 @@ struct ShiftTemplateFormSheet: View {
             updated.shiftName = s
             updated.startTime = startTime
             updated.endTime = endTime
+            updated.breakMinutes = parsedBreakMinutes
             updated.payType = payType
             updated.fixedPay = payType == .fixed ? parsedFixedPay : nil
             updated.updatedAt = Date()
@@ -874,6 +975,7 @@ struct ShiftTemplateFormSheet: View {
                 shiftName: s,
                 startTime: startTime,
                 endTime: endTime,
+                breakMinutes: parsedBreakMinutes,
                 payType: payType,
                 hourlyRateId: payType == .hourly ? (selectedHourlyRateId.isEmpty ? nil : selectedHourlyRateId) : nil,
                 fixedPay: payType == .fixed ? parsedFixedPay : nil

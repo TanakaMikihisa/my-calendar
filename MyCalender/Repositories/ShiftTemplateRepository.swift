@@ -48,6 +48,7 @@ actor FirestoreShiftTemplateRepository: ShiftTemplateRepositoryProtocol {
         // 後方互換: payRateId がない古いデータは空文字（一覧で「未設定」表示）
         let payRateId = (data["payRateId"] as? String) ?? ""
 
+        let breakMinutes = (data["breakMinutes"] as? Int) ?? (data["breakMinutes"] as? Int64).map { Int($0) } ?? 0
         return ShiftTemplate(
             id: doc.documentID,
             payRateId: payRateId,
@@ -55,6 +56,7 @@ actor FirestoreShiftTemplateRepository: ShiftTemplateRepositoryProtocol {
             shiftName: shiftName,
             startTime: (data["startTime"] as? String) ?? "09:00",
             endTime: (data["endTime"] as? String) ?? "17:00",
+            breakMinutes: breakMinutes,
             payType: payType,
             fixedPay: try FirestoreMappers.decimal(data["fixedPay"], key: "fixedPay"),
             isActive: (data["isActive"] as? Bool) ?? true,
@@ -71,6 +73,7 @@ private extension ShiftTemplate {
             "shiftName": shiftName,
             "startTime": startTime,
             "endTime": endTime,
+            "breakMinutes": breakMinutes,
             "payType": payType.rawValue,
             "isActive": isActive,
             "createdAt": FieldValue.serverTimestamp(),

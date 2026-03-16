@@ -91,4 +91,16 @@ final class EditEventViewModel {
             return false
         }
     }
+
+    func delete() async -> Bool {
+        do {
+            let uid = try await authRepository.ensureSignedInAnonymously()
+            try await eventRepository.deactivate(uid: uid, eventId: eventId)
+            await MainActor.run { errorMessage = nil }
+            return true
+        } catch {
+            await MainActor.run { errorMessage = error.localizedDescription }
+            return false
+        }
+    }
 }

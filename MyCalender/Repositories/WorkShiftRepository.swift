@@ -46,10 +46,12 @@ actor FirestoreWorkShiftRepository: WorkShiftRepositoryProtocol {
         let payTypeRaw = (data["payType"] as? String) ?? "hourly"
         let payType = WorkPayType(rawValue: payTypeRaw) ?? .hourly
 
+        let breakMinutes = (data["breakMinutes"] as? Int) ?? (data["breakMinutes"] as? Int64).map { Int($0) } ?? 0
         return WorkShift(
             id: doc.documentID,
             startAt: try FirestoreMappers.date(data["startAt"], key: "startAt"),
             endAt: try FirestoreMappers.date(data["endAt"], key: "endAt"),
+            breakMinutes: breakMinutes,
             payType: payType,
             payRateId: data["payRateId"] as? String,
             hourlyRateId: data["hourlyRateId"] as? String,
@@ -69,6 +71,7 @@ private extension WorkShift {
         var dict: [String: Any] = [
             "startAt": Timestamp(date: startAt),
             "endAt": Timestamp(date: endAt),
+            "breakMinutes": breakMinutes,
             "payType": payType.rawValue,
             "tagIds": tagIds,
             "isActive": isActive,

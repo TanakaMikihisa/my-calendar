@@ -13,6 +13,8 @@ struct ScheduleListView: View {
     @Binding var selectedDetailItem: ScheduleDetailItem?
     var onDeleteEvent: ((Event) -> Void)?
     var onDeleteWorkShift: ((WorkShift) -> Void)?
+    /// プルで更新時に呼ぶ async 処理（DayView で refreshAsync を渡す）
+    var onRefresh: (() async -> Void)?
 
     private var sortedItems: [ScheduleItem] {
         let eventItems = events.map { ScheduleItem.event($0) }
@@ -44,9 +46,11 @@ struct ScheduleListView: View {
                     }
                     .contextMenu {
                         Button("詳細を開く") {
+                            FeedBack().feedback(.medium)
                             selectedDetailItem = detailItem(for: item)
                         }
                         Button("削除", role: .destructive) {
+                            FeedBack().feedback(.heavy)
                             withAnimation(.easeOut(duration: 0.25)) {
                                 switch item {
                                 case .event(let e): onDeleteEvent?(e)
@@ -63,6 +67,7 @@ struct ScheduleListView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(Color.white)
+            .refreshable { await onRefresh?() }
         }
     }
 }

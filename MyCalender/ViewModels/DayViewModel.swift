@@ -51,27 +51,31 @@ final class DayViewModel {
 
     /// メイン画面用：その日の予定（イベント・シフト）だけ await し、isLoading を終了。tags / payRates / 天気はバックグラウンドで取得。
     func refresh() {
-        Task { @MainActor in
-            isLoading = true
-            defer { isLoading = false }
+        Task { @MainActor in await refreshAsync() }
+    }
 
-            do {
-                let uid = try await authRepository.ensureSignedInAnonymously()
-                let start = date.startOfDay()
-                let end = date.endOfDay()
+    /// プルで更新・表示切替時の再読み込み用。完了まで await できる。
+    func refreshAsync() async {
+        await MainActor.run { isLoading = true }
+        do {
+            let uid = try await authRepository.ensureSignedInAnonymously()
+            let start = date.startOfDay()
+            let end = date.endOfDay()
 
-                async let eventsTask = eventRepository.listActiveOverlapping(uid: uid, start: start, end: end)
-                async let shiftsTask = workShiftRepository.listActiveOverlapping(uid: uid, start: start, end: end)
+            async let eventsTask = eventRepository.listActiveOverlapping(uid: uid, start: start, end: end)
+            async let shiftsTask = workShiftRepository.listActiveOverlapping(uid: uid, start: start, end: end)
 
-                self.events = try await eventsTask
-                self.workShifts = try await shiftsTask
+            let (fetchedEvents, fetchedShifts) = try await (eventsTask, shiftsTask)
+            await MainActor.run {
+                self.events = fetchedEvents
+                self.workShifts = fetchedShifts
                 self.errorMessage = nil
-            } catch {
-                self.errorMessage = error.localizedDescription
             }
-
-            loadTagsPayRatesAndWeatherInBackground()
+            await MainActor.run { loadTagsPayRatesAndWeatherInBackground() }
+        } catch {
+            await MainActor.run { self.errorMessage = error.localizedDescription }
         }
+        await MainActor.run { isLoading = false }
     }
 
     /// tags / payRates / 天気は予定追加画面でも使うが、メイン表示用にバックグラウンドで取得（isLoading は立てない）

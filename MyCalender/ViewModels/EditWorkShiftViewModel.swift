@@ -12,6 +12,8 @@ final class EditWorkShiftViewModel {
     let shiftId: String
     var startAt: Date
     var endAt: Date
+    /// 休憩時間（分）の入力用文字列。任意。デフォルト "0"。
+    var breakMinutesText: String
     var payType: WorkPayType
     var fixedPayText: String
     /// 固定給のときの会社名（入力用）
@@ -43,6 +45,7 @@ final class EditWorkShiftViewModel {
         self.shiftId = shift.id
         self.startAt = shift.startAt
         self.endAt = shift.endAt
+        self.breakMinutesText = shift.breakMinutes > 0 ? "\(shift.breakMinutes)" : ""
         self.payType = shift.payType
         self.fixedPayText = shift.fixedPay.map { "\($0)" } ?? ""
         self.companyNameText = shift.companyName ?? ""
@@ -115,6 +118,13 @@ final class EditWorkShiftViewModel {
         return Decimal(string: trimmed)
     }
 
+    /// 休憩時間（分）。未入力・不正値は 0。
+    var breakMinutes: Int {
+        let trimmed = breakMinutesText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let n = Int(trimmed), n >= 0 else { return 0 }
+        return n
+    }
+
     func save() async -> Bool {
         guard canSave else { return false }
 
@@ -130,6 +140,7 @@ final class EditWorkShiftViewModel {
                 id: shiftId,
                 startAt: startAt,
                 endAt: endAt,
+                breakMinutes: breakMinutes,
                 payType: payType,
                 payRateId: payType == .hourly ? selectedPayRateId : nil,
                 hourlyRateId: payType == .hourly ? selectedHourlyRateId : nil,
@@ -142,6 +153,18 @@ final class EditWorkShiftViewModel {
                 updatedAt: now
             )
             try await workShiftRepository.upsert(uid: uid, shift: shift)
+            await MainActor.run { errorMessage = nil }
+            return true
+        } catch {
+            await MainActor.run { errorMessage = error.localizedDescription }
+            return false
+        }
+    }
+
+    func delete() async -> Bool {
+        do {
+            let uid = try await authRepository.ensureSignedInAnonymously()
+            try await workShiftRepository.deactivate(uid: uid, shiftId: shiftId)
             await MainActor.run { errorMessage = nil }
             return true
         } catch {

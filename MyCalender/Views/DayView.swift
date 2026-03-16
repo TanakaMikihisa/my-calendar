@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// メイン画面の表示モード（イベント時間軸 / リスト）
+/// メイン画面の表示モード（イベント時間軸 / リスト / 月次勤務）
 private enum DayViewMode {
     case eventTimeline
     case list
+    case monthlyWorkShift
 }
 
 struct DayView: View {
@@ -23,44 +24,111 @@ struct DayView: View {
     @State private var displayMode: DayViewMode = .eventTimeline
     @State private var hasSyncedDisplayModeFromStorage = false
     @State private var showWeatherSheet = false
+    /// 月次勤務ビューで表示する月（任意の日付でよい）
+    @State private var monthlyViewMonth = Date()
+    @State private var monthlyWorkShiftViewModel = MonthlyWorkShiftViewModel(month: Date())
 
     private var dayStart: Date { viewModel.date.startOfDay() }
     private var dayEnd: Date {
         Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86400)
     }
 
+    /// 月次勤務時：< ○月 > で月を切り替え（グレーの丸・グレー文字）
+    private var monthNavigationView: some View {
+        let cal = Calendar.current
+        let monthInt = cal.component(.month, from: monthlyViewMonth)
+        return HStack(spacing: 16) {
+            Button {
+                FeedBack().feedback(.medium)
+                if let prev = cal.date(byAdding: .month, value: -1, to: monthlyViewMonth) {
+                    monthlyViewMonth = prev
+                }
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Color(.systemGray))
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Color(.systemGray5)))
+            }
+            Text("\(monthInt)月")
+                .font(.title2.weight(.medium))
+            Button {
+                FeedBack().feedback(.medium)
+                if let next = cal.date(byAdding: .month, value: 1, to: monthlyViewMonth) {
+                    monthlyViewMonth = next
+                }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Color(.systemGray))
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Color(.systemGray5)))
+            }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // 左上に天気、右に日付ピッカー。雨モード時はマーキー分だけ高さを確保
+                // 上バー：左に天気、右に日付 or 月ナビ（< ○月 >）
                 ZStack(alignment: .topLeading) {
                     HStack(spacing: 0) {
                         Spacer(minLength: 0)
                             .frame(minWidth: 150)
-                        DatePicker(
-                            "",
-                            selection: $viewModel.date,
-                            displayedComponents: [.date]
-                        )
-                        .datePickerStyle(.compact)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
 
-                    dayWeatherView
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                    if displayMode == .monthlyWorkShift {
+                        HStack {
+                            dayWeatherView
+                                .onTapGesture {
+                                FeedBack().feedback(.medium)
+                                showWeatherSheet = true
+                            }
+                            Spacer(minLength: 0)
+                            monthNavigationView
+                        }
                         .padding(.leading, 16)
+                        .padding(.trailing, 16)
                         .padding(.top, 8)
-                        .onTapGesture { showWeatherSheet = true }
+                    } else {
+                        HStack(spacing: 0) {
+                            Spacer(minLength: 0)
+                                .frame(minWidth: 150)
+                            DatePicker(
+                                "",
+                                selection: $viewModel.date,
+                                displayedComponents: [.date]
+                            )
+                            .datePickerStyle(.compact)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+
+                        dayWeatherView
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                            .padding(.leading, 16)
+                            .padding(.top, 8)
+                            .onTapGesture {
+                                FeedBack().feedback(.medium)
+                                showWeatherSheet = true
+                            }
+                    }
                 }
                 .frame(height: isRainMode ? 112 : 64)
                 .onChange(of: viewModel.date) { _, _ in
-                    viewModel.refresh()
+                    if displayMode != .monthlyWorkShift {
+                        viewModel.refresh()
+                    }
                 }
-                .onAppear {
-                    if !hasSyncedDisplayModeFromStorage {
-                        hasSyncedDisplayModeFromStorage = true
-                        displayMode = isTimeAxisMode ? .eventTimeline : .list
+                .onChange(of: displayMode) { _, newMode in
+                    switch newMode {
+                    case .eventTimeline, .list:
+                        viewModel.refresh()
+                    case .monthlyWorkShift:
+                        monthlyWorkShiftViewModel.month = monthlyViewMonth
+                        monthlyWorkShiftViewModel.refresh()
                     }
                 }
 
@@ -80,7 +148,8 @@ struct DayView: View {
                                 onSelectEvent: { selectedDetailItem = .event($0) },
                                 onSelectWorkShift: { selectedDetailItem = .workShift($0) },
                                 onDeleteEvent: { viewModel.deleteEvent($0) },
-                                onDeleteWorkShift: { viewModel.deleteWorkShift($0) }
+                                onDeleteWorkShift: { viewModel.deleteWorkShift($0) },
+                                onRefresh: { await viewModel.refreshAsync() }
                             )
                         case .list:
                             ScheduleListView(
@@ -94,7 +163,14 @@ struct DayView: View {
                                 shiftTemplates: viewModel.shiftTemplates,
                                 selectedDetailItem: $selectedDetailItem,
                                 onDeleteEvent: { viewModel.deleteEvent($0) },
-                                onDeleteWorkShift: { viewModel.deleteWorkShift($0) }
+                                onDeleteWorkShift: { viewModel.deleteWorkShift($0) },
+                                onRefresh: { await viewModel.refreshAsync() }
+                            )
+                        case .monthlyWorkShift:
+                            MonthlyWorkShiftGridView(
+                                viewModel: monthlyWorkShiftViewModel,
+                                selectedMonth: $monthlyViewMonth,
+                                onSelectWorkShift: { selectedDetailItem = .workShift($0) }
                             )
                         }
                     }
@@ -104,9 +180,16 @@ struct DayView: View {
                     // スワイプ方向の矢印インジケータ（横スワイプ中に表示）
                     swipeArrowOverlay
                 }
+                .onAppear {
+                    if !hasSyncedDisplayModeFromStorage {
+                        hasSyncedDisplayModeFromStorage = true
+                        displayMode = isTimeAxisMode ? .eventTimeline : .list
+                    }
+                }
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 20)
                         .onChanged { value in
+                            guard displayMode != .monthlyWorkShift else { return }
                             let dx = value.translation.width
                             let dy = value.translation.height
                             // 横方向が優位なときだけ矢印用の値を更新
@@ -116,16 +199,22 @@ struct DayView: View {
                             }
                         }
                         .onEnded { value in
+                            guard displayMode != .monthlyWorkShift else {
+                                swipeTranslation = 0
+                                return
+                            }
                             let dx = value.translation.width
                             let dy = value.translation.height
                             withAnimation(.easeOut(duration: 0.25)) {
                                 if abs(dx) > abs(dy), abs(dx) > 60 {
                                     if dx < 0 {
                                         if let next = Calendar.current.date(byAdding: .day, value: 1, to: viewModel.date) {
+                                            FeedBack().feedback(.medium)
                                             viewModel.date = next
                                         }
                                     } else {
                                         if let prev = Calendar.current.date(byAdding: .day, value: -1, to: viewModel.date) {
+                                            FeedBack().feedback(.medium)
                                             viewModel.date = prev
                                         }
                                     }
@@ -137,24 +226,52 @@ struct DayView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        withAnimation(.linear) {
-                            switch displayMode {
-                            case .eventTimeline:
-                                displayMode = .list
-                                isTimeAxisMode = false
-                            case .list:
-                                displayMode = .eventTimeline
-                                isTimeAxisMode = true
+                    if displayMode == .monthlyWorkShift {
+                        Button {
+                            FeedBack().feedback(.medium)
+                            withAnimation(.linear) {
+                                displayMode = isTimeAxisMode ? .eventTimeline : .list
                             }
+                        } label: {
+                            Image(systemName: "calendar.day.timeline.left")
                         }
-                    } label: {
-                        Image(systemName: displayMode == .list ? "list.bullet" : "calendar")
+                    } else {
+                        Button {
+                            FeedBack().feedback(.medium)
+                            withAnimation(.linear) {
+                                displayMode = .monthlyWorkShift
+                                monthlyViewMonth = viewModel.date
+                            }
+                        } label: {
+                            Image(systemName: "rectangle.grid.1x2")
+                        }
+                    }
+                }
+                if displayMode != .monthlyWorkShift {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            FeedBack().feedback(.medium)
+                            withAnimation(.linear) {
+                                switch displayMode {
+                                case .eventTimeline:
+                                    displayMode = .list
+                                    isTimeAxisMode = false
+                                case .list:
+                                    displayMode = .eventTimeline
+                                    isTimeAxisMode = true
+                                case .monthlyWorkShift:
+                                    break
+                                }
+                            }
+                        } label: {
+                            Image(systemName: displayMode == .list ? "list.bullet" : "calendar")
+                        }
                     }
                 }
                 if displayMode == .eventTimeline {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
+                            FeedBack().feedback(.light)
                             withAnimation {
                                 isOneHourUnit.toggle()
                             }
@@ -165,6 +282,7 @@ struct DayView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
+                        FeedBack().feedback(.medium)
                         isPresentingCreateSheet = true
                     } label: {
                         Image(systemName: "plus")

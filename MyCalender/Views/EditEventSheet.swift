@@ -5,14 +5,18 @@ struct EditEventSheet: View {
     var event: Event
     var tags: [Tag]
     var onSaved: () -> Void
+    /// 削除成功時に呼ぶ（詳細画面を閉じる場合に指定）。未指定時は onSaved を呼ぶ
+    var onDeleted: (() -> Void)? = nil
 
     @State private var viewModel: EditEventViewModel
     @State private var showErrorAlert = false
+    @State private var showDeleteConfirm = false
 
-    init(event: Event, tags: [Tag], onSaved: @escaping () -> Void) {
+    init(event: Event, tags: [Tag], onSaved: @escaping () -> Void, onDeleted: (() -> Void)? = nil) {
         self.event = event
         self.tags = tags
         self.onSaved = onSaved
+        self.onDeleted = onDeleted
         _viewModel = State(initialValue: EditEventViewModel(event: event))
     }
 
@@ -33,6 +37,7 @@ struct EditEventSheet: View {
                     } else {
                         ForEach(viewModel.tags) { tag in
                             Button {
+                                FeedBack().feedback(.light)
                                 viewModel.toggleTag(tag.id)
                             } label: {
                                 HStack {
@@ -51,14 +56,25 @@ struct EditEventSheet: View {
                         }
                     }
                 }
+                Section {
+                    Button("予定を削除", role: .destructive) {
+                        FeedBack().feedback(.heavy)
+                        showDeleteConfirm = true
+                    }
+                    .frame(maxWidth: .infinity)
+                }
             }
             .navigationTitle("イベントを編集")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    Button("キャンセル") {
+                        FeedBack().feedback(.light)
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
+                        FeedBack().feedback(.medium)
                         Task {
                             let success = await viewModel.save()
                             if success {
@@ -77,11 +93,32 @@ struct EditEventSheet: View {
             }
             .alert("エラー", isPresented: $showErrorAlert) {
                 Button("OK") {
+                    FeedBack().feedback(.light)
                     showErrorAlert = false
                     viewModel.errorMessage = nil
                 }
             } message: {
                 Text(viewModel.errorMessage ?? "")
+            }
+            .alert("予定を削除しますか？", isPresented: $showDeleteConfirm) {
+                Button("キャンセル", role: .cancel) {
+                    FeedBack().feedback(.light)
+                    showDeleteConfirm = false
+                }
+                Button("削除", role: .destructive) {
+                    FeedBack().feedback(.heavy)
+                    Task {
+                        let success = await viewModel.delete()
+                        if success {
+                            (onDeleted ?? onSaved)()
+                            dismiss()
+                        } else {
+                            showErrorAlert = true
+                        }
+                    }
+                }
+            } message: {
+                Text("この操作は取り消せません。")
             }
         }
     }

@@ -87,6 +87,7 @@ struct ScheduleDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("編集") {
+                    FeedBack().feedback(.medium)
                     showEditSheet = true
                 }
             }
@@ -94,15 +95,23 @@ struct ScheduleDetailView: View {
         .sheet(isPresented: $showEditSheet) {
             switch item {
             case .event(let event):
-                EditEventSheet(event: event, tags: tags) {
+                EditEventSheet(event: event, tags: tags, onSaved: {
                     onRefresh()
                     showEditSheet = false
-                }
+                }, onDeleted: {
+                    onRefresh()
+                    showEditSheet = false
+                    onDismiss?()
+                })
             case .workShift(let shift):
-                EditWorkShiftSheet(shift: shift, tags: tags) {
+                EditWorkShiftSheet(shift: shift, tags: tags, onSaved: {
                     onRefresh()
                     showEditSheet = false
-                }
+                }, onDeleted: {
+                    onRefresh()
+                    showEditSheet = false
+                    onDismiss?()
+                })
             }
         }
         .onDisappear { onDismiss?() }

@@ -14,6 +14,8 @@ struct TimeAxisDayView: View {
     var onSelectWorkShift: ((WorkShift) -> Void)?
     var onDeleteEvent: ((Event) -> Void)?
     var onDeleteWorkShift: ((WorkShift) -> Void)?
+    /// プルで更新時に呼ぶ async 処理（DayView で refreshAsync を渡す）
+    var onRefresh: (() async -> Void)?
 
     private var calendar: Calendar { .current }
     private var dayEnd: Date {
@@ -36,6 +38,7 @@ struct TimeAxisDayView: View {
             .padding(.leading, 20)
             .padding(.trailing, 7)
         }
+        .refreshable { await onRefresh?() }
     }
 
     private var timeRuler: some View {
@@ -117,6 +120,7 @@ struct TimeAxisDayView: View {
                     let w = contentWidth / CGFloat(block.totalColumns)
                     let x = contentWidth * CGFloat(block.columnIndex) / CGFloat(block.totalColumns)
                     Button {
+                        FeedBack().feedback(.medium)
                         if let e = block.event { onSelectEvent?(e) }
                         else if let s = block.workShift { onSelectWorkShift?(s) }
                     } label: {

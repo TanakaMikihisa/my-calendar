@@ -12,11 +12,12 @@ extension WorkShift {
         return "勤務"
     }
 
-    /// このシフトで稼げる合計金額。時給は 時間×単価、固定給はそのまま。
+    /// このシフトで稼げる合計金額。時給は（勤務時間−休憩）×単価、固定給はそのまま。
     func totalEarnings(hourlyRates: [HourlyRate], payRates: [PayRate]) -> Decimal? {
         let durationHours: Decimal = {
-            let sec = endAt.timeIntervalSince(startAt)
-            return Decimal(sec) / 3600
+            let totalMinutes = Int(endAt.timeIntervalSince(startAt) / 60)
+            let workMinutes = max(0, totalMinutes - breakMinutes)
+            return Decimal(workMinutes) / 60
         }()
         switch payType {
         case .hourly:

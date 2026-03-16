@@ -27,6 +27,8 @@ final class CreateWorkShiftViewModel {
 
     var startAt: Date
     var endAt: Date
+    /// 休憩時間（分）の入力用文字列。任意。デフォルト "0"。
+    var breakMinutesText: String
     var payType: WorkPayType
     /// 固定給のときの金額（入力用文字列）
     var fixedPayText: String = ""
@@ -45,6 +47,7 @@ final class CreateWorkShiftViewModel {
 
     init(
         initialDate: Date,
+        initialPayRateId: PayRateID? = nil,
         authRepository: AuthRepositoryProtocol = FirebaseAuthRepository(),
         workShiftRepository: WorkShiftRepositoryProtocol = FirestoreWorkShiftRepository(),
         payRateRepository: PayRateRepositoryProtocol = FirestorePayRateRepository(),
@@ -62,7 +65,14 @@ final class CreateWorkShiftViewModel {
         let end = calendar.date(bySettingHour: 17, minute: 0, second: 0, of: initialDate) ?? start.addingTimeInterval(3600 * 8)
         self.startAt = start
         self.endAt = end
+        self.breakMinutesText = ""
         self.payType = .hourly
+        if let id = initialPayRateId {
+            self.selectedPayRateIdForTemplate = id
+            self.selectedPayRateId = id
+            // EmptyCell の「新規作成」から開いたときは、最初から「新規作成」モードで時給・会社を確定させる
+            self.workShiftCreateMode = .newEntry
+        }
     }
 
     func loadPayRates() {
@@ -140,14 +150,15 @@ final class CreateWorkShiftViewModel {
         return shiftTemplates.filter { $0.payRateId == payRateId }
     }
 
-    /// テンプレの稼ぎ額（時給なら時間×単価、固定給ならそのまま）。表示用文字列を返す。
+    /// テンプレの稼ぎ額（時給なら勤務時間−休憩の時間×単価、固定給ならそのまま）。表示用文字列を返す。
     func templateEarningsDisplay(_ template: ShiftTemplate) -> String? {
         let calendar = Calendar.current
         guard let startDate = Date.fromTimeString(template.startTime, calendar: calendar),
               let endDate = Date.fromTimeString(template.endTime, calendar: calendar) else { return nil }
         var durationMinutes = Int(endDate.timeIntervalSince(startDate) / 60)
         if durationMinutes <= 0 { durationMinutes += 24 * 60 }
-        let hours = Decimal(durationMinutes) / 60
+        let workMinutes = max(0, durationMinutes - template.breakMinutes)
+        let hours = Decimal(workMinutes) / 60
 
         switch template.payType {
         case .hourly:
@@ -178,6 +189,13 @@ final class CreateWorkShiftViewModel {
         return Decimal(string: trimmed)
     }
 
+    /// 休憩時間（分）。未入力・不正値は 0。
+    var breakMinutes: Int {
+        let trimmed = breakMinutesText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let n = Int(trimmed), n >= 0 else { return 0 }
+        return n
+    }
+
     func save() async -> Bool {
         guard canSave else { return false }
 
@@ -202,6 +220,7 @@ final class CreateWorkShiftViewModel {
                     id: UUID().uuidString,
                     startAt: start,
                     endAt: endAt,
+                    breakMinutes: template.breakMinutes,
                     payType: template.payType,
                     payRateId: template.payRateId.isEmpty ? nil : template.payRateId,
                     hourlyRateId: template.hourlyRateId,
@@ -220,6 +239,7 @@ final class CreateWorkShiftViewModel {
                     id: UUID().uuidString,
                     startAt: startAt,
                     endAt: endAt,
+                    breakMinutes: breakMinutes,
                     payType: payType,
                     payRateId: payType == .hourly ? selectedPayRateId : nil,
                     hourlyRateId: payType == .hourly ? selectedHourlyRateId : nil,

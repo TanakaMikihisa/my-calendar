@@ -57,6 +57,20 @@ final class CreateEventViewModel {
         return !t.isEmpty && startAt < endAt
     }
 
+    /// タイトルに "H:mm-H:mm" または "H:mm〜H:mm" があれば開始・終了をその値に更新する
+    func applyTimeRangeFromTitleIfNeeded() {
+        guard let range = title.parsedTimeRange() else { return }
+        let calendar = Calendar.current
+        let baseDate = calendar.startOfDay(for: startAt)
+        guard let newStart = calendar.date(bySettingHour: range.startHour, minute: range.startMinute, second: 0, of: baseDate),
+              var newEnd = calendar.date(bySettingHour: range.endHour, minute: range.endMinute, second: 0, of: baseDate) else { return }
+        if newEnd <= newStart {
+            newEnd = calendar.date(byAdding: .day, value: 1, to: newEnd) ?? newEnd
+        }
+        startAt = newStart
+        endAt = newEnd
+    }
+
     func save() async -> Bool {
         guard canSave else { return false }
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -27,6 +27,8 @@ struct WorkShift: Identifiable, Sendable, Hashable {
     var id: WorkShiftID
     var startAt: Date
     var endAt: Date
+    /// 休憩時間（分）。任意。時給計算では勤務時間から差し引く。デフォルト 0。
+    var breakMinutes: Int
     var payType: WorkPayType
     var payRateId: PayRateID?
     /// 時給のときどれを使うか。IDで参照するので変更が全体に反映される。
@@ -53,6 +55,8 @@ struct ShiftTemplate: Identifiable, Sendable, Hashable {
     var startTime: String
     /// "HH:mm"（日跨ぎ可）
     var endTime: String
+    /// 休憩時間（分）。任意。デフォルト 0。テンプレから勤務を作成するときに引き継ぐ。
+    var breakMinutes: Int
     var payType: WorkPayType
     var fixedPay: Decimal?
     var isActive: Bool

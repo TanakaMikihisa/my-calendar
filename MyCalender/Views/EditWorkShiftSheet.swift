@@ -5,14 +5,18 @@ struct EditWorkShiftSheet: View {
     var shift: WorkShift
     var tags: [Tag]
     var onSaved: () -> Void
+    /// 削除成功時に呼ぶ（詳細画面を閉じる場合に指定）。未指定時は onSaved を呼ぶ
+    var onDeleted: (() -> Void)? = nil
 
     @State private var viewModel: EditWorkShiftViewModel
     @State private var showErrorAlert = false
+    @State private var showDeleteConfirm = false
 
-    init(shift: WorkShift, tags: [Tag], onSaved: @escaping () -> Void) {
+    init(shift: WorkShift, tags: [Tag], onSaved: @escaping () -> Void, onDeleted: (() -> Void)? = nil) {
         self.shift = shift
         self.tags = tags
         self.onSaved = onSaved
+        self.onDeleted = onDeleted
         _viewModel = State(initialValue: EditWorkShiftViewModel(shift: shift))
     }
 
@@ -22,6 +26,8 @@ struct EditWorkShiftSheet: View {
                 Section("勤務時間") {
                     DatePicker("開始", selection: $viewModel.startAt, displayedComponents: [.date, .hourAndMinute])
                     DatePicker("終了", selection: $viewModel.endAt, displayedComponents: [.date, .hourAndMinute])
+                    TextField("休憩時間（分）", text: $viewModel.breakMinutesText)
+                        .keyboardType(.numberPad)
                 }
                 Section("給与") {
                     Picker("種別", selection: $viewModel.payType) {
@@ -36,6 +42,7 @@ struct EditWorkShiftSheet: View {
                         } else {
                             ForEach(viewModel.payRates) { rate in
                                 Button {
+                                    FeedBack().feedback(.light)
                                     viewModel.selectedPayRateId = viewModel.selectedPayRateId == rate.id ? nil : rate.id
                                     viewModel.selectedHourlyRateId = nil
                                 } label: {
@@ -53,6 +60,7 @@ struct EditWorkShiftSheet: View {
                             if viewModel.selectedPayRateId != nil, !viewModel.hourlyRatesForSelectedCompany.isEmpty {
                                 ForEach(viewModel.hourlyRatesForSelectedCompany) { rate in
                                     Button {
+                                        FeedBack().feedback(.light)
                                         viewModel.selectedHourlyRateId = viewModel.selectedHourlyRateId == rate.id ? nil : rate.id
                                     } label: {
                                         HStack {
@@ -83,6 +91,7 @@ struct EditWorkShiftSheet: View {
                     } else {
                         ForEach(viewModel.tags) { tag in
                             Button {
+                                FeedBack().feedback(.light)
                                 viewModel.toggleTag(tag.id)
                             } label: {
                                 HStack {
@@ -101,14 +110,25 @@ struct EditWorkShiftSheet: View {
                         }
                     }
                 }
+                Section {
+                    Button("勤務を削除", role: .destructive) {
+                        FeedBack().feedback(.heavy)
+                        showDeleteConfirm = true
+                    }
+                    .frame(maxWidth: .infinity)
+                }
             }
             .navigationTitle("勤務を編集")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    Button("キャンセル") {
+                        FeedBack().feedback(.light)
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
+                        FeedBack().feedback(.medium)
                         Task {
                             let success = await viewModel.save()
                             if success {
@@ -129,11 +149,32 @@ struct EditWorkShiftSheet: View {
             }
             .alert("エラー", isPresented: $showErrorAlert) {
                 Button("OK") {
+                    FeedBack().feedback(.light)
                     showErrorAlert = false
                     viewModel.errorMessage = nil
                 }
             } message: {
                 Text(viewModel.errorMessage ?? "")
+            }
+            .alert("勤務を削除しますか？", isPresented: $showDeleteConfirm) {
+                Button("キャンセル", role: .cancel) {
+                    FeedBack().feedback(.light)
+                    showDeleteConfirm = false
+                }
+                Button("削除", role: .destructive) {
+                    FeedBack().feedback(.heavy)
+                    Task {
+                        let success = await viewModel.delete()
+                        if success {
+                            (onDeleted ?? onSaved)()
+                            dismiss()
+                        } else {
+                            showErrorAlert = true
+                        }
+                    }
+                }
+            } message: {
+                Text("この操作は取り消せません。")
             }
         }
     }
@@ -145,7 +186,7 @@ struct EditWorkShiftSheet: View {
     let today = cal.startOfDay(for: Date())
     let start = cal.date(bySettingHour: 9, minute: 0, second: 0, of: today)!
     let end = cal.date(bySettingHour: 17, minute: 0, second: 0, of: today)!
-    let shift = WorkShift(id: "ps1", startAt: start, endAt: end, payType: .hourly, payRateId: nil, hourlyRateId: nil, fixedPay: nil, companyName: nil, templateId: nil, tagIds: [], isActive: true, createdAt: .distantPast, updatedAt: .distantPast)
+    let shift = WorkShift(id: "ps1", startAt: start, endAt: end, breakMinutes: 0, payType: .hourly, payRateId: nil, hourlyRateId: nil, fixedPay: nil, companyName: nil, templateId: nil, tagIds: [], isActive: true, createdAt: .distantPast, updatedAt: .distantPast)
     let tags: [Tag] = []
     return EditWorkShiftSheet(shift: shift, tags: tags) {}
 }

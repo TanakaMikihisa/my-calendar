@@ -11,6 +11,8 @@ struct CreateItemSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var initialDate: Date?
+    /// 勤務作成時に初期選択する会社（PayRateID）。指定時は会社・日付が入力済みの状態で開く
+    var initialPayRateId: PayRateID? = nil
     var onSaved: () -> Void
 
     @State private var kind: CreateItemKind = .event
@@ -26,6 +28,7 @@ struct CreateItemSheet: View {
                     HStack(spacing: 8) {
                         ForEach(CreateItemKind.allCases) { k in
                             Button {
+                                FeedBack().feedback(.light)
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     kind = k
                                 }
@@ -61,6 +64,7 @@ struct CreateItemSheet: View {
                             HStack(spacing: 8) {
                                 ForEach(WorkShiftCreateMode.allCases) { mode in
                                     Button {
+                                        FeedBack().feedback(.light)
                                         withAnimation(.easeInOut(duration: 0.2)) {
                                             workShiftViewModel.workShiftCreateMode = mode
                                         }
@@ -89,6 +93,7 @@ struct CreateItemSheet: View {
                                 HStack(spacing: 8) {
                                     ForEach([WorkPayType.hourly, WorkPayType.fixed], id: \.self) { payType in
                                         Button {
+                                            FeedBack().feedback(.light)
                                             withAnimation(.easeInOut(duration: 0.2)) {
                                                 workShiftViewModel.payType = payType
                                             }
@@ -112,59 +117,63 @@ struct CreateItemSheet: View {
                                 .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
                                 .listRowBackground(Color.clear)
                             }
-                            Section {
-                                if workShiftViewModel.payType == .hourly {
-                                    Group {
-                                        if workShiftViewModel.payRates.isEmpty {
-                                            Text("会社がありません。設定から追加してください。")
-                                                .foregroundStyle(.secondary)
-                                        } else {
-                                            ForEach(workShiftViewModel.payRates) { rate in
-                                                Button {
-                                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                                        workShiftViewModel.selectedPayRateId = workShiftViewModel.selectedPayRateId == rate.id ? nil : rate.id
-                                                        workShiftViewModel.selectedHourlyRateId = nil
+                            if workShiftViewModel.payType == .hourly {
+                                Section("会社") {
+                                    if workShiftViewModel.payRates.isEmpty {
+                                        Text("会社がありません。設定から追加してください。")
+                                            .foregroundStyle(.secondary)
+                                    } else {
+                                        ForEach(workShiftViewModel.payRates) { rate in
+                                            Button {
+                                                FeedBack().feedback(.light)
+                                                withAnimation(.easeInOut(duration: 0.2)) {
+                                                    workShiftViewModel.selectedPayRateId = workShiftViewModel.selectedPayRateId == rate.id ? nil : rate.id
+                                                    workShiftViewModel.selectedHourlyRateId = nil
+                                                }
+                                            } label: {
+                                                HStack {
+                                                    Text(rate.title)
+                                                        .foregroundStyle(.primary)
+                                                    Spacer()
+                                                    if workShiftViewModel.selectedPayRateId == rate.id {
+                                                        Image(systemName: "checkmark.circle.fill")
+                                                            .foregroundStyle(.tint)
                                                     }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                .animation(.easeInOut(duration: 0.2), value: workShiftViewModel.selectedPayRateId)
+                                if workShiftViewModel.selectedPayRateId != nil {
+                                    Section("時給") {
+                                        if workShiftViewModel.hourlyRatesForSelectedCompany.isEmpty {
+                                            Text("この会社に時給パターンがありません。設定で会社をタップして時給を追加してください。")
+                                                .foregroundStyle(.secondary)
+                                                .font(.caption)
+                                        } else {
+                                            ForEach(workShiftViewModel.hourlyRatesForSelectedCompany) { rate in
+                                                Button {
+                                                    FeedBack().feedback(.light)
+                                                    workShiftViewModel.selectedHourlyRateId = workShiftViewModel.selectedHourlyRateId == rate.id ? nil : rate.id
                                                 } label: {
                                                     HStack {
-                                                        Text(rate.title)
+                                                        Text(rate.displayLabel())
                                                             .foregroundStyle(.primary)
                                                         Spacer()
-                                                        if workShiftViewModel.selectedPayRateId == rate.id {
+                                                        if workShiftViewModel.selectedHourlyRateId == rate.id {
                                                             Image(systemName: "checkmark.circle.fill")
                                                                 .foregroundStyle(.tint)
                                                         }
                                                     }
                                                 }
                                             }
-                                            if workShiftViewModel.selectedPayRateId != nil {
-                                                if workShiftViewModel.hourlyRatesForSelectedCompany.isEmpty {
-                                                    Text("この会社に時給パターンがありません。設定で会社をタップして時給を追加してください。")
-                                                        .foregroundStyle(.secondary)
-                                                        .font(.caption)
-                                                } else {
-                                                    ForEach(workShiftViewModel.hourlyRatesForSelectedCompany) { rate in
-                                                        Button {
-                                                            workShiftViewModel.selectedHourlyRateId = workShiftViewModel.selectedHourlyRateId == rate.id ? nil : rate.id
-                                                        } label: {
-                                                            HStack {
-                                                                Text(rate.displayLabel())
-                                                                    .foregroundStyle(.primary)
-                                                                Spacer()
-                                                                if workShiftViewModel.selectedHourlyRateId == rate.id {
-                                                                    Image(systemName: "checkmark.circle.fill")
-                                                                        .foregroundStyle(.tint)
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
                                         }
                                     }
-                                    .animation(.easeInOut(duration: 0.2), value: workShiftViewModel.selectedPayRateId)
                                 }
-                                if workShiftViewModel.payType == .fixed {
+                            }
+                            if workShiftViewModel.payType == .fixed {
+                                Section {
                                     TextField("会社名", text: Binding(
                                         get: { workShiftViewModel.companyNameText },
                                         set: { workShiftViewModel.companyNameText = $0 }
@@ -185,17 +194,22 @@ struct CreateItemSheet: View {
             .listStyle(.plain)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("閉じる") { dismiss() }
+                    Button("閉じる") {
+                        FeedBack().feedback(.light)
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 16) {
                         Button {
+                            FeedBack().feedback(.medium)
                             showSettingsSheet = true
                         } label: {
                             Image(systemName: "gearshape")
                         }
                         if kind == .event, let eventViewModel {
                             Button("保存") {
+                                FeedBack().feedback(.medium)
                                 Task {
                                     let success = await eventViewModel.save()
                                     if success {
@@ -210,6 +224,7 @@ struct CreateItemSheet: View {
                         }
                         if kind == .workShift, let workShiftViewModel {
                             Button("保存") {
+                                FeedBack().feedback(.medium)
                                 Task {
                                     let success = await workShiftViewModel.save()
                                     if success {
@@ -228,12 +243,16 @@ struct CreateItemSheet: View {
             .navigationTitle("予定の追加")
             .onAppear {
                 let date = initialDate ?? Date()
+                // EmptyCell の「新規作成」から開いたときは勤務を選択し、ViewModel 側で「新規作成」モード・時給・会社をセットする
+                if initialPayRateId != nil {
+                    kind = .workShift
+                }
                 if eventViewModel == nil {
                     eventViewModel = CreateEventViewModel(initialDate: date)
                     eventViewModel?.loadTags()
                 }
                 if workShiftViewModel == nil {
-                    workShiftViewModel = CreateWorkShiftViewModel(initialDate: date)
+                    workShiftViewModel = CreateWorkShiftViewModel(initialDate: date, initialPayRateId: initialPayRateId)
                     workShiftViewModel?.loadPayRates()
                     workShiftViewModel?.loadHourlyRates()
                     workShiftViewModel?.loadShiftTemplates()
@@ -252,6 +271,7 @@ struct CreateItemSheet: View {
             }
             .alert("エラー", isPresented: $showErrorAlert) {
                 Button("OK") {
+                    FeedBack().feedback(.light)
                     showErrorAlert = false
                     eventViewModel?.errorMessage = nil
                     workShiftViewModel?.errorMessage = nil
@@ -265,14 +285,20 @@ struct CreateItemSheet: View {
 
 private struct CreateEventForm: View {
     @Bindable var viewModel: CreateEventViewModel
+    @FocusState private var isTitleFocused: Bool
 
     var body: some View {
         Section("イベント") {
             TextField("タイトル", text: $viewModel.title)
+                .focused($isTitleFocused)
+                .onSubmit { viewModel.applyTimeRangeFromTitleIfNeeded() }
             DatePicker("開始", selection: $viewModel.startAt, displayedComponents: [.date, .hourAndMinute])
             DatePicker("終了", selection: $viewModel.endAt, displayedComponents: [.date, .hourAndMinute])
             TextField("メモ", text: $viewModel.note, axis: .vertical)
                 .lineLimit(3...6)
+        }
+        .onChange(of: isTitleFocused) { old, new in
+            if old == true && !new { viewModel.applyTimeRangeFromTitleIfNeeded() }
         }
         Section("タグ") {
             if viewModel.tags.isEmpty {
@@ -281,6 +307,7 @@ private struct CreateEventForm: View {
             } else {
                 ForEach(viewModel.tags) { tag in
                     Button {
+                        FeedBack().feedback(.light)
                         viewModel.toggleTag(tag.id)
                     } label: {
                         HStack {
@@ -319,6 +346,7 @@ private struct CreateWorkShiftForm: View {
                             .foregroundStyle(.primary)
                         Spacer()
                         Button("会社を変更") {
+                            FeedBack().feedback(.medium)
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 viewModel.selectedPayRateIdForTemplate = nil
                                 viewModel.selectedTemplateId = nil
@@ -326,12 +354,37 @@ private struct CreateWorkShiftForm: View {
                         }
                         .font(.subheadline)
                     }
+                } else {
+                    ForEach(viewModel.payRatesWithTemplates) { rate in
+                        Button {
+                            FeedBack().feedback(.light)
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                viewModel.selectedPayRateIdForTemplate = rate.id
+                                viewModel.selectedTemplateId = nil
+                            }
+                        } label: {
+                            HStack {
+                                Text(rate.title)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if viewModel.selectedPayRateIdForTemplate == rate.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.tint)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if viewModel.selectedPayRateIdForTemplate != nil {
+                Section("シフト") {
                     if viewModel.shiftTemplatesForSelectedCompany.isEmpty {
                         Text("この会社にシフトがありません。設定でシフトを追加してください。")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(viewModel.shiftTemplatesForSelectedCompany) { template in
                             Button {
+                                FeedBack().feedback(.light)
                                 viewModel.selectedTemplateId = viewModel.selectedTemplateId == template.id ? nil : template.id
                             } label: {
                                 HStack {
@@ -356,25 +409,6 @@ private struct CreateWorkShiftForm: View {
                             }
                         }
                     }
-                } else {
-                    ForEach(viewModel.payRatesWithTemplates) { rate in
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                viewModel.selectedPayRateIdForTemplate = rate.id
-                                viewModel.selectedTemplateId = nil
-                            }
-                        } label: {
-                            HStack {
-                                Text(rate.title)
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                if viewModel.selectedPayRateIdForTemplate == rate.id {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(.tint)
-                                }
-                            }
-                        }
-                    }
                 }
             }
             Section("日付") {
@@ -384,6 +418,8 @@ private struct CreateWorkShiftForm: View {
             Section("勤務時間") {
                 DatePicker("開始", selection: $viewModel.startAt, displayedComponents: [.date, .hourAndMinute])
                 DatePicker("終了", selection: $viewModel.endAt, displayedComponents: [.date, .hourAndMinute])
+                TextField("休憩時間（分）", text: $viewModel.breakMinutesText)
+                    .keyboardType(.numberPad)
             }
         }
     }

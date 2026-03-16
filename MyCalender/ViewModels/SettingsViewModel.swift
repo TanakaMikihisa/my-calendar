@@ -254,7 +254,7 @@ final class SettingsViewModel {
 
     // MARK: - ShiftTemplate
 
-    func addShiftTemplate(payRateId: PayRateID, shiftName: String, startTime: String, endTime: String, payType: WorkPayType, hourlyRateId: HourlyRateID?, fixedPay: Decimal?) async -> Bool {
+    func addShiftTemplate(payRateId: PayRateID, shiftName: String, startTime: String, endTime: String, breakMinutes: Int, payType: WorkPayType, hourlyRateId: HourlyRateID?, fixedPay: Decimal?) async -> Bool {
         let shiftTrimmed = shiftName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !shiftTrimmed.isEmpty, !payRateId.isEmpty else { return false }
         do {
@@ -266,6 +266,7 @@ final class SettingsViewModel {
                 shiftName: shiftTrimmed,
                 startTime: startTime,
                 endTime: endTime,
+                breakMinutes: max(0, breakMinutes),
                 payType: payType,
                 fixedPay: payType == .fixed ? fixedPay : nil,
                 isActive: true,
