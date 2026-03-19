@@ -10,6 +10,7 @@ CALUDE.md
 private/
 docs/
 *.md
+!README.md
 *.p12
 *.mobileprovision
 *.cer
