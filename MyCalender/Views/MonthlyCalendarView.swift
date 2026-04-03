@@ -147,6 +147,8 @@ struct MonthlyCalendarView: View {
             tags: tags
         )
         let dayStart = day.startOfDay()
+        let barCount = min(state.barColorHexes.count, 4)
+        let barStackHeight = barCount == 0 ? CGFloat(0) : CGFloat(barCount * 5 - 2)
 
         return Button {
             FeedBack().feedback(.medium)
@@ -182,7 +184,7 @@ struct MonthlyCalendarView: View {
                 }
                 .frame(height: 34)
 
-                HStack(spacing: 2) {
+                VStack(spacing: 2) {
                     ForEach(Array(state.barColorHexes.prefix(4).enumerated()), id: \.offset) { _, hex in
                         Capsule()
                             .fill(barFillColor(hex: hex))
@@ -191,7 +193,7 @@ struct MonthlyCalendarView: View {
                             .padding(.horizontal, 6)
                     }
                 }
-                .frame(height: state.barColorHexes.isEmpty ? 0 : 3)
+                .frame(height: barStackHeight)
                 .opacity(state.barColorHexes.isEmpty ? 0 : 1)
             }
             .frame(minHeight: 52)
