@@ -101,4 +101,55 @@ final class CreateEventViewModel {
             return false
         }
     }
+
+    func save(onDates: [Date]) async -> Bool {
+        let normalizedDates = Array(Set(onDates.map { $0.startOfDay() })).sorted()
+        guard !normalizedDates.isEmpty else { return await save() }
+        guard canSave else { return false }
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let calendar = Calendar.current
+
+        await MainActor.run { isSaving = true }
+        defer { Task { @MainActor in isSaving = false } }
+
+        do {
+            let uid = try await authRepository.ensureSignedInAnonymously()
+            let now = Date()
+
+            let baseStartHour = calendar.component(.hour, from: startAt)
+            let baseStartMinute = calendar.component(.minute, from: startAt)
+            let baseEndHour = calendar.component(.hour, from: endAt)
+            let baseEndMinute = calendar.component(.minute, from: endAt)
+            let wrapsToNextDay = endAt <= startAt
+
+            for date in normalizedDates {
+                guard let start = calendar.date(bySettingHour: baseStartHour, minute: baseStartMinute, second: 0, of: date),
+                      var end = calendar.date(bySettingHour: baseEndHour, minute: baseEndMinute, second: 0, of: date)
+                else { continue }
+                if wrapsToNextDay || end <= start {
+                    end = calendar.date(byAdding: .day, value: 1, to: end) ?? end
+                }
+
+                let event = Event(
+                    id: UUID().uuidString,
+                    type: .normal,
+                    title: trimmedTitle,
+                    startAt: start,
+                    endAt: end,
+                    note: note.isEmpty ? nil : note,
+                    tagIds: Array(selectedTagIds),
+                    isActive: true,
+                    createdAt: now,
+                    updatedAt: now
+                )
+                try await eventRepository.upsert(uid: uid, event: event)
+            }
+
+            await MainActor.run { errorMessage = nil }
+            return true
+        } catch {
+            await MainActor.run { errorMessage = error.localizedDescription }
+            return false
+        }
+    }
 }

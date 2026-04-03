@@ -11,8 +11,12 @@ struct CreateItemSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var initialDate: Date?
+    /// 指定がある場合、イベント保存時にこの日付群へ個別に登録する（イベントのみ）
+    var eventTargetDates: [Date]?
+    /// true の場合、イベント作成フォームの日付選択（date）を隠して時刻のみ表示する
+    var hidesEventDatePicker: Bool = false
     /// 勤務作成時に初期選択する会社（PayRateID）。指定時は会社・日付が入力済みの状態で開く
-    var initialPayRateId: PayRateID? = nil
+    var initialPayRateId: PayRateID?
     var onSaved: () -> Void
 
     @State private var kind: CreateItemKind = .event
@@ -20,6 +24,7 @@ struct CreateItemSheet: View {
     @State private var workShiftViewModel: CreateWorkShiftViewModel?
     @State private var showErrorAlert = false
     @State private var showSettingsSheet = false
+    @State private var showMultiDateSaveConfirmAlert = false
 
     var body: some View {
         NavigationStack {
@@ -56,7 +61,7 @@ struct CreateItemSheet: View {
                 switch kind {
                 case .event:
                     if let eventViewModel {
-                        CreateEventForm(viewModel: eventViewModel)
+                        CreateEventForm(viewModel: eventViewModel, hidesDatePicker: hidesEventDatePicker)
                     }
                 case .workShift:
                     if let workShiftViewModel {
@@ -210,13 +215,22 @@ struct CreateItemSheet: View {
                         if kind == .event, let eventViewModel {
                             Button("保存") {
                                 FeedBack().feedback(.medium)
-                                Task {
-                                    let success = await eventViewModel.save()
-                                    if success {
-                                        dismiss()
-                                        onSaved()
-                                    } else {
-                                        showErrorAlert = true
+                                if requiresMultiDateSaveConfirmation {
+                                    showMultiDateSaveConfirmAlert = true
+                                } else {
+                                    Task {
+                                        let success: Bool
+                                        if let eventTargetDates {
+                                            success = await eventViewModel.save(onDates: eventTargetDates)
+                                        } else {
+                                            success = await eventViewModel.save()
+                                        }
+                                        if success {
+                                            dismiss()
+                                            onSaved()
+                                        } else {
+                                            showErrorAlert = true
+                                        }
                                     }
                                 }
                             }
@@ -279,12 +293,42 @@ struct CreateItemSheet: View {
             } message: {
                 Text(eventViewModel?.errorMessage ?? workShiftViewModel?.errorMessage ?? "")
             }
+            .alert("複数日に同じ予定を登録します", isPresented: $showMultiDateSaveConfirmAlert) {
+                Button("キャンセル", role: .cancel) {
+                    FeedBack().feedback(.light)
+                }
+                Button("登録") {
+                    FeedBack().feedback(.medium)
+                    Task {
+                        guard let eventViewModel else { return }
+                        let success: Bool
+                        if let eventTargetDates {
+                            success = await eventViewModel.save(onDates: eventTargetDates)
+                        } else {
+                            success = await eventViewModel.save()
+                        }
+                        if success {
+                            dismiss()
+                            onSaved()
+                        } else {
+                            showErrorAlert = true
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    private var requiresMultiDateSaveConfirmation: Bool {
+        guard kind == .event else { return false }
+        guard let eventTargetDates else { return false }
+        return !eventTargetDates.isEmpty
     }
 }
 
 private struct CreateEventForm: View {
     @Bindable var viewModel: CreateEventViewModel
+    var hidesDatePicker: Bool
     @FocusState private var isTitleFocused: Bool
 
     var body: some View {
@@ -292,13 +336,21 @@ private struct CreateEventForm: View {
             TextField("タイトル", text: $viewModel.title)
                 .focused($isTitleFocused)
                 .onSubmit { viewModel.applyTimeRangeFromTitleIfNeeded() }
-            DatePicker("開始", selection: $viewModel.startAt, displayedComponents: [.date, .hourAndMinute])
-            DatePicker("終了", selection: $viewModel.endAt, displayedComponents: [.date, .hourAndMinute])
+            DatePicker(
+                "開始",
+                selection: $viewModel.startAt,
+                displayedComponents: hidesDatePicker ? [.hourAndMinute] : [.date, .hourAndMinute]
+            )
+            DatePicker(
+                "終了",
+                selection: $viewModel.endAt,
+                displayedComponents: hidesDatePicker ? [.hourAndMinute] : [.date, .hourAndMinute]
+            )
             TextField("メモ", text: $viewModel.note, axis: .vertical)
                 .lineLimit(3...6)
         }
         .onChange(of: isTitleFocused) { old, new in
-            if old == true && !new { viewModel.applyTimeRangeFromTitleIfNeeded() }
+            if old == true, !new { viewModel.applyTimeRangeFromTitleIfNeeded() }
         }
         Section("タグ") {
             if viewModel.tags.isEmpty {

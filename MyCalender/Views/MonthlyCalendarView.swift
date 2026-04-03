@@ -10,6 +10,8 @@ struct MonthlyCalendarView: View {
     var workShifts: [WorkShift]
     var tags: [Tag]
     var isLoading: Bool
+    var isMultiSelectMode: Bool
+    @Binding var multiSelectedDates: Set<Date>
     var onSelectDay: (Date) -> Void
     var onRefresh: () async -> Void
     /// 親（`DayView`）の「今日」ボタンから `UUID` を渡すと、その月へスクロールする
@@ -23,6 +25,8 @@ struct MonthlyCalendarView: View {
         workShifts: [WorkShift],
         tags: [Tag],
         isLoading: Bool,
+        isMultiSelectMode: Bool = false,
+        multiSelectedDates: Binding<Set<Date>> = .constant([]),
         onSelectDay: @escaping (Date) -> Void,
         onRefresh: @escaping () async -> Void,
         scrollToTodayTrigger: Binding<UUID?> = .constant(nil)
@@ -34,6 +38,8 @@ struct MonthlyCalendarView: View {
         self.workShifts = workShifts
         self.tags = tags
         self.isLoading = isLoading
+        self.isMultiSelectMode = isMultiSelectMode
+        self._multiSelectedDates = multiSelectedDates
         self.onSelectDay = onSelectDay
         self.onRefresh = onRefresh
         self._scrollToTodayTrigger = scrollToTodayTrigger
@@ -135,6 +141,8 @@ struct MonthlyCalendarView: View {
         let state = viewModel.dayCellState(
             for: day,
             selectedDate: selectedDate,
+            multiSelectedDates: multiSelectedDates,
+            isMultiSelectMode: isMultiSelectMode,
             events: events,
             workShifts: workShifts,
             tags: tags
@@ -143,8 +151,16 @@ struct MonthlyCalendarView: View {
 
         return Button {
             FeedBack().feedback(.medium)
-            selectedDate = dayStart
-            onSelectDay(dayStart)
+            if isMultiSelectMode {
+                if multiSelectedDates.contains(dayStart) {
+                    multiSelectedDates.remove(dayStart)
+                } else {
+                    multiSelectedDates.insert(dayStart)
+                }
+            } else {
+                selectedDate = dayStart
+                onSelectDay(dayStart)
+            }
         } label: {
             VStack(spacing: 4) {
                 ZStack {
@@ -152,13 +168,17 @@ struct MonthlyCalendarView: View {
                         Circle()
                             .fill(Color.red)
                             .frame(width: 32, height: 32)
+                    } else if state.isSelected {
+                        Circle()
+                            .fill(Color.accentColor.opacity(0.2))
+                            .frame(width: 32, height: 32)
                     }
                     Text("\(state.dayNumber)")
                         .font(.body.weight(.semibold))
                         .foregroundStyle(
                             state.isToday
                                 ? Color.white
-                                : (state.isWeekend ? Color.secondary : Color.primary)
+                                : (state.isSelected ? Color.accentColor : (state.isWeekend ? Color.secondary : Color.primary))
                         )
                 }
                 .frame(height: 34)

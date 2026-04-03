@@ -69,6 +69,8 @@ struct DayView: View {
     /// 月カレンダーで日付を選んだときに開く「その日の時間軸」シート
     @State private var calendarDayTimelineSheetItem: CalendarDayTimelineSheetItem?
     @State private var sheetScheduleDetailItem: ScheduleDetailItem?
+    @State private var isMonthCalendarSelectionMode = false
+    @State private var monthCalendarSelectedDates: Set<Date> = []
 
     private var dayStart: Date { viewModel.date.startOfDay() }
     private var dayEnd: Date {
@@ -243,6 +245,8 @@ struct DayView: View {
                                 workShifts: viewModel.calendarRangeWorkShifts,
                                 tags: viewModel.tags,
                                 isLoading: viewModel.isLoadingCalendarRange,
+                                isMultiSelectMode: isMonthCalendarSelectionMode,
+                                multiSelectedDates: $monthCalendarSelectedDates,
                                 onSelectDay: { day in
                                     let d = day.startOfDay()
                                     viewModel.date = d
@@ -297,40 +301,73 @@ struct DayView: View {
                     .padding(.bottom, 8)
                 }
                 .overlay(alignment: .bottomTrailing) {
-                    HStack(spacing: 25) {
-                        Menu {
-                            Picker("表示", selection: toolbarDisplayPickerBinding) {
-                                ForEach(MainToolbarDisplayOption.allCases, id: \.self) { option in
-                                    Label(option.title, systemImage: option.symbolName)
-                                        .tag(option)
+                    VStack(alignment: .trailing, spacing: 8) {
+                        if displayMode == .monthlyCalendar {
+                            Button {
+                                FeedBack().feedback(.medium)
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    if isMonthCalendarSelectionMode {
+                                        clearMonthCalendarMultiSelection()
+                                    } else {
+                                        isMonthCalendarSelectionMode = true
+                                    }
                                 }
+                            } label: {
+                                Text("選択")
+                                    .font(.headline.weight(.semibold))
+                                    .foregroundStyle(isMonthCalendarSelectionMode ? Color.white : Color.primary)
+                                    .padding(.horizontal, 20)
+                                    .padding(.vertical, 12)
+                                    .background(
+                                        Capsule()
+                                            .fill(isMonthCalendarSelectionMode ? Color.accentColor : Color(.systemBackground))
+                                            .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+                                    )
                             }
-                            .labelsHidden()
-                            .pickerStyle(.inline)
-                        } label: {
-                            Image(systemName: toolbarDisplayOption(from: displayMode).symbolName)
-                                .font(.title2.weight(.semibold))
-                                .foregroundStyle(Color.primary)
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("複数日選択モード")
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("表示を切り替え")
 
-                        Button {
-                            FeedBack().feedback(.medium)
-                            isPresentingCreateSheet = true
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.title2.weight(.semibold))
+                        HStack(spacing: 25) {
+                            Menu {
+                                Picker("表示", selection: toolbarDisplayPickerBinding) {
+                                    ForEach(MainToolbarDisplayOption.allCases, id: \.self) { option in
+                                        Label(option.title, systemImage: option.symbolName)
+                                            .tag(option)
+                                    }
+                                }
+                                .labelsHidden()
+                                .pickerStyle(.inline)
+                            } label: {
+                                Image(systemName: toolbarDisplayOption(from: displayMode).symbolName)
+                                    .font(.title2.weight(.semibold))
+                                    .foregroundStyle(Color.primary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("表示を切り替え")
+                            .simultaneousGesture(
+                                TapGesture().onEnded {
+                                    clearMonthCalendarMultiSelection()
+                                }
+                            )
+
+                            Button {
+                                FeedBack().feedback(.medium)
+                                isPresentingCreateSheet = true
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.title2.weight(.semibold))
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 15)
+                        .background(
+                            Capsule()
+                                .fill(Color(.systemBackground))
+                                .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+                        )
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 15)
-                    .background(
-                        Capsule()
-                            .fill(Color(.systemBackground))
-                            .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
-                    )
                     .padding(.trailing, 16)
                     .padding(.bottom, 8)
                 }
@@ -379,12 +416,20 @@ struct DayView: View {
                 ScheduleDetailView(item: item, tags: viewModel.tags, payRates: viewModel.payRates, hourlyRates: viewModel.hourlyRates, shiftTemplates: viewModel.shiftTemplates, onRefresh: { viewModel.refresh() }, onDismiss: { selectedDetailItem = nil })
             }
             .sheet(isPresented: $isPresentingCreateSheet) {
-                CreateItemSheet(initialDate: viewModel.date, onSaved: {
-                    viewModel.refresh()
-                    if displayMode == .monthlyCalendar {
-                        viewModel.refreshCalendarRange(around: calendarAnchorMonth)
+                CreateItemSheet(
+                    initialDate: viewModel.date,
+                    eventTargetDates: selectedDatesForCreateEvent,
+                    hidesEventDatePicker: selectedDatesForCreateEvent != nil,
+                    onSaved: {
+                        viewModel.refresh()
+                        if displayMode == .monthlyCalendar {
+                            viewModel.refreshCalendarRange(around: calendarAnchorMonth)
+                        }
+                        if selectedDatesForCreateEvent != nil {
+                            clearMonthCalendarMultiSelection()
+                        }
                     }
-                })
+                )
             }
             .sheet(isPresented: $showWeatherSheet) {
                 WeatherTimelineView(
@@ -437,7 +482,18 @@ struct DayView: View {
                 }
                 viewModel.refresh()
             }
+            .onChange(of: displayMode) { _, newMode in
+                if newMode != .monthlyCalendar {
+                    clearMonthCalendarMultiSelection()
+                }
+            }
         }
+    }
+
+    private var selectedDatesForCreateEvent: [Date]? {
+        guard displayMode == .monthlyCalendar, isMonthCalendarSelectionMode else { return nil }
+        let dates = monthCalendarSelectedDates.sorted()
+        return dates.isEmpty ? nil : dates
     }
 
     private func toolbarDisplayOption(from mode: DayViewMode) -> MainToolbarDisplayOption {
@@ -460,9 +516,16 @@ struct DayView: View {
     }
 
     private func applyToolbarDisplay(_ option: MainToolbarDisplayOption) {
+        clearMonthCalendarMultiSelection()
         guard option != toolbarDisplayOption(from: displayMode) else { return }
         FeedBack().feedback(.medium)
         applyMainDisplayMode(option, animated: true, persistToAppStorage: true)
+    }
+
+    /// 月カレンダーの複数日選択を解除（表示切り替え操作と連動）
+    private func clearMonthCalendarMultiSelection() {
+        isMonthCalendarSelectionMode = false
+        monthCalendarSelectedDates.removeAll()
     }
 
     /// 表示モードを適用。`persistToAppStorage` が true のとき右下で選んだ内容を `lastMainDisplayModeRaw` に保存する。

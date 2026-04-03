@@ -64,6 +64,8 @@ final class MonthCalendarViewModel {
     func dayCellState(
         for day: Date,
         selectedDate: Date,
+        multiSelectedDates: Set<Date>,
+        isMultiSelectMode: Bool,
         events: [Event],
         workShifts: [WorkShift],
         tags: [Tag]
@@ -71,7 +73,12 @@ final class MonthCalendarViewModel {
         let dayStart = day.startOfDay()
         let dayEnd = day.endOfDay()
         let isToday = calendar.isDateInToday(day)
-        let isSelected = calendar.isDate(selectedDate, inSameDayAs: day) && !isToday
+        let isSelected: Bool
+        if isMultiSelectMode {
+            isSelected = multiSelectedDates.contains(dayStart)
+        } else {
+            isSelected = calendar.isDate(selectedDate, inSameDayAs: day) && !isToday
+        }
         let weekday = calendar.component(.weekday, from: day)
         let isWeekend = weekday == 1 || weekday == 7
         let barHexes = barColorHexes(dayStart: dayStart, dayEnd: dayEnd, events: events, workShifts: workShifts, tags: tags)
