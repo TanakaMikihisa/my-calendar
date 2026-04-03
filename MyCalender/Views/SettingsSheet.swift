@@ -12,12 +12,10 @@ struct SettingsSheet: View {
         NavigationStack {
             Form {
                 Section("タグ") {
-                    if viewModel.isLoading && viewModel.tags.isEmpty {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                            Spacer()
-                        }
+                    if viewModel.isLoading, viewModel.tags.isEmpty {
+                        SavingReturnArrowOverlay(isSaving: true, clipsScrimToParentBounds: true)
+                            .frame(height: 140)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                     } else if viewModel.tags.isEmpty {
                         Text("タグがありません")
                             .foregroundStyle(.secondary)
@@ -45,12 +43,10 @@ struct SettingsSheet: View {
                     }
                 }
                 Section("会社") {
-                    if viewModel.isLoading && viewModel.payRates.isEmpty {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                            Spacer()
-                        }
+                    if viewModel.isLoading, viewModel.payRates.isEmpty {
+                        SavingReturnArrowOverlay(isSaving: true, clipsScrimToParentBounds: true)
+                            .frame(height: 140)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                     } else if viewModel.payRates.isEmpty {
                         Text("会社がありません。追加して時給・シフトを設定できます。")
                             .foregroundStyle(.secondary)
@@ -249,12 +245,18 @@ struct TagFormSheet: View {
             } message: {
                 Text(errorMessage ?? "")
             }
+            .overlay(alignment: .bottomLeading) {
+                SavingReturnArrowOverlay(isSaving: isSaving)
+                    .padding(.leading, 16)
+                    .padding(.bottom, 12)
+            }
         }
     }
 
     private func save() async {
         let vm = SettingsViewModel()
         isSaving = true
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         defer { isSaving = false }
         if let tag {
             var t = tag
@@ -280,6 +282,7 @@ struct TagFormSheet: View {
 }
 
 // MARK: - 会社追加（名前のみ。時給・シフトは会社詳細で設定）
+
 struct PayRateFormSheet: View {
     @Environment(\.dismiss) private var dismiss
     let payRate: PayRate?
@@ -356,6 +359,11 @@ struct PayRateFormSheet: View {
             } message: {
                 Text(errorMessage ?? "")
             }
+            .overlay(alignment: .bottomLeading) {
+                SavingReturnArrowOverlay(isSaving: isSaving)
+                    .padding(.leading, 16)
+                    .padding(.bottom, 12)
+            }
         }
     }
 
@@ -405,6 +413,7 @@ struct PayRateFormSheet: View {
 }
 
 // MARK: - 会社詳細（会社名 ＋ 時給パターン一覧 ＋ シフト一覧）
+
 struct CompanyDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     let company: PayRate
@@ -504,7 +513,7 @@ struct CompanyDetailSheet: View {
                         FeedBack().feedback(.light)
                         Task {
                             let trimmed = companyName.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if companyFormCanSave && trimmed != company.title {
+                            if companyFormCanSave, trimmed != company.title {
                                 await saveCompany()
                             } else {
                                 await MainActor.run { onDismiss(); dismiss() }
@@ -561,6 +570,11 @@ struct CompanyDetailSheet: View {
                 }
             } message: {
                 Text(errorMessage ?? "")
+            }
+            .overlay(alignment: .bottomLeading) {
+                SavingReturnArrowOverlay(isSaving: isSaving)
+                    .padding(.leading, 16)
+                    .padding(.bottom, 12)
             }
         }
     }
@@ -622,6 +636,7 @@ struct CompanyDetailSheet: View {
 }
 
 // MARK: - 時給パターン追加・編集（金額のみ、名前なし）
+
 struct HourlyRateFormSheet: View {
     @Environment(\.dismiss) private var dismiss
     let payRateId: PayRateID
@@ -688,6 +703,11 @@ struct HourlyRateFormSheet: View {
             } message: {
                 Text(errorMessage ?? "")
             }
+            .overlay(alignment: .bottomLeading) {
+                SavingReturnArrowOverlay(isSaving: isSaving)
+                    .padding(.leading, 16)
+                    .padding(.bottom, 12)
+            }
         }
     }
 
@@ -726,6 +746,7 @@ struct HourlyRateFormSheet: View {
 }
 
 // MARK: - シフトテンプレート追加・編集（1会社に複数シフト・時給パターン）
+
 struct ShiftTemplateFormSheet: View {
     @Environment(\.dismiss) private var dismiss
     let template: ShiftTemplate?
@@ -733,15 +754,15 @@ struct ShiftTemplateFormSheet: View {
     /// この会社の時給パターン（会社詳細から開くとき用）
     let hourlyRates: [HourlyRate]
     /// 指定時は会社を固定（会社選択UIを出さない）
-    var fixedPayRateId: PayRateID? = nil
+    var fixedPayRateId: PayRateID?
     let onSave: () -> Void
     let onDismiss: () -> Void
 
     @State private var selectedPayRateId: PayRateID = ""
     @State private var selectedHourlyRateId: HourlyRateID = ""
     @State private var shiftName: String = ""
-    @State private var startTimeDate: Date = Date()
-    @State private var endTimeDate: Date = Date()
+    @State private var startTimeDate: Date = .init()
+    @State private var endTimeDate: Date = .init()
     @State private var breakMinutesText: String = ""
     @State private var payType: WorkPayType = .hourly
     @State private var fixedPayText: String = ""
@@ -765,14 +786,17 @@ struct ShiftTemplateFormSheet: View {
             endTimeDate = end
         }
     }
+
     /// 実際に使う会社ID（固定時は fixedPayRateId、それ以外は選択値）
     private var effectivePayRateId: PayRateID {
         fixedPayRateId ?? selectedPayRateId
     }
+
     /// この会社の時給パターン（固定時は渡された hourlyRates）
     private var effectiveHourlyRates: [HourlyRate] {
         hourlyRates.filter { $0.payRateId == effectivePayRateId }
     }
+
     /// 選択中の時給金額（表示用）
     private var selectedWage: Decimal? {
         effectiveHourlyRates.first(where: { $0.id == selectedHourlyRateId })?.amount
@@ -813,7 +837,7 @@ struct ShiftTemplateFormSheet: View {
                         .onSubmit { applyTimeRangeFromShiftName() }
                 }
                 .onChange(of: isShiftNameFocused) { old, new in
-                    if old == true && !new { applyTimeRangeFromShiftName() }
+                    if old == true, !new { applyTimeRangeFromShiftName() }
                 }
                 Section("勤務時間") {
                     DatePicker("開始", selection: $startTimeDate, displayedComponents: .hourAndMinute)
@@ -919,6 +943,11 @@ struct ShiftTemplateFormSheet: View {
                 }
             } message: {
                 Text(errorMessage ?? "")
+            }
+            .overlay(alignment: .bottomLeading) {
+                SavingReturnArrowOverlay(isSaving: isSaving)
+                    .padding(.leading, 16)
+                    .padding(.bottom, 12)
             }
         }
     }

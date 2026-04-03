@@ -64,8 +64,7 @@ struct MonthlyCalendarView: View {
             .refreshable { await onRefresh() }
             .overlay {
                 if isLoading, events.isEmpty, workShifts.isEmpty {
-                    ProgressView()
-                        .scaleEffect(1.2)
+                    SavingReturnArrowOverlay(isSaving: true)
                 }
             }
             .onAppear {

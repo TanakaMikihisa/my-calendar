@@ -299,6 +299,7 @@ struct CreateItemSheet: View {
                 }
                 Button("登録") {
                     FeedBack().feedback(.medium)
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                     Task {
                         guard let eventViewModel else { return }
                         let success: Bool
@@ -315,6 +316,13 @@ struct CreateItemSheet: View {
                         }
                     }
                 }
+            }
+            .overlay(alignment: .bottomLeading) {
+                SavingReturnArrowOverlay(
+                    isSaving: kind == .event && (eventViewModel?.isSaving == true)
+                )
+                .padding(.leading, 16)
+                .padding(.bottom, 12)
             }
         }
     }

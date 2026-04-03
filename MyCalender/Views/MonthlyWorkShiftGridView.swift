@@ -54,8 +54,7 @@ struct MonthlyWorkShiftGridView: View {
         }
         .overlay {
             if viewModel.isLoading {
-                ProgressView()
-                    .scaleEffect(1.2)
+                SavingReturnArrowOverlay(isSaving: true)
             }
         }
         .refreshable { await viewModel.refreshAsync() }

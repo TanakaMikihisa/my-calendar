@@ -17,7 +17,7 @@ struct ContentView: View {
             } else if let message = appViewModel.errorMessage {
                 ContentUnavailableView("起動できませんでした", systemImage: "exclamationmark.triangle", description: Text(message))
             } else {
-                ProgressView()
+                SavingReturnArrowOverlay(isSaving: true)
             }
         }
         .task {
