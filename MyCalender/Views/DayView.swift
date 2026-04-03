@@ -1,17 +1,49 @@
 import SwiftUI
 
-/// メイン画面の表示モード（イベント時間軸 / リスト / 月次勤務）
-private enum DayViewMode {
-    case eventTimeline
+/// 1日まわりの表示（ツールバー1本で「リスト → 勤務表 → 1時間おき」→ リスト…と巡回）
+private enum DayPanelKind: Equatable {
+    /// 1時間おきの時間軸
+    case hourlyTimeline
     case list
     case monthlyWorkShift
+}
+
+/// メイン画面の表示モード（`day` に時間軸・リスト・勤務をまとめ、`monthlyCalendar` を追加）
+private enum DayViewMode: Equatable {
+    case day(DayPanelKind)
+    case monthlyCalendar
+}
+
+/// ツールバー表示切替用（現在の `DayViewMode` と1対1。ボタンで rawValue 順に巡回）
+private enum MainToolbarDisplayOption: Int, CaseIterable {
+    case hourlyTimeline = 0
+    case list = 1
+    case monthlyWorkShift = 2
+    case monthlyCalendar = 3
+
+    var title: String {
+        switch self {
+        case .hourlyTimeline: return "1時間おき"
+        case .list: return "リスト"
+        case .monthlyWorkShift: return "勤務表"
+        case .monthlyCalendar: return "月カレンダー"
+        }
+    }
+
+    /// ツールバー上のピッカーに出す SF Symbol（従来の各ボタンと同じ）
+    var symbolName: String {
+        switch self {
+        case .hourlyTimeline: return "list.dash"
+        case .list: return "list.bullet.clipboard"
+        case .monthlyWorkShift: return "rectangle.grid.1x2"
+        case .monthlyCalendar: return "calendar"
+        }
+    }
 }
 
 struct DayView: View {
     /// 時間軸 vs リストの選択（天気以外で永続化）
     @AppStorage(Constants.appStorageIsTimeAxisMode) private var isTimeAxisMode = true
-    /// true = 1時間単位, false = 30分単位
-    @AppStorage(Constants.appStorageIsOneHourUnit) private var isOneHourUnit = true
 
     @State private var viewModel = DayViewModel(
         weatherRepository: WeatherKitWeatherRepository(locationRepository: DefaultLocationRepository())
@@ -21,16 +53,25 @@ struct DayView: View {
     @State private var selectedDetailItem: ScheduleDetailItem?
     /// 横スワイプの現在値（正=右方向=前日、負=左方向=翌日）。矢印表示に使用
     @State private var swipeTranslation: CGFloat = 0
-    @State private var displayMode: DayViewMode = .eventTimeline
+    @State private var displayMode: DayViewMode = .day(.hourlyTimeline)
     @State private var hasSyncedDisplayModeFromStorage = false
     @State private var showWeatherSheet = false
     /// 月次勤務ビューで表示する月（任意の日付でよい）
     @State private var monthlyViewMonth = Date()
+    /// 縦スクロール月カレンダーの基準月（初回スクロール位置）
+    @State private var calendarAnchorMonth = Date()
+    @State private var monthCalendarViewModel = MonthCalendarViewModel()
     @State private var monthlyWorkShiftViewModel = MonthlyWorkShiftViewModel(month: Date())
 
     private var dayStart: Date { viewModel.date.startOfDay() }
     private var dayEnd: Date {
         Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86400)
+    }
+
+    /// 横スワイプで日付変更できるのは時間軸・リストのみ
+    private var allowsDaySwipeNavigation: Bool {
+        if case let .day(k) = displayMode, k == .hourlyTimeline || k == .list { return true }
+        return false
     }
 
     /// 月次勤務時：< ○月 > で月を切り替え（グレーの丸・グレー文字）
@@ -79,15 +120,27 @@ struct DayView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
 
-                    if displayMode == .monthlyWorkShift {
+                    if case .day(.monthlyWorkShift) = displayMode {
                         HStack {
                             dayWeatherView
                                 .onTapGesture {
-                                FeedBack().feedback(.medium)
-                                showWeatherSheet = true
-                            }
+                                    FeedBack().feedback(.medium)
+                                    showWeatherSheet = true
+                                }
                             Spacer(minLength: 0)
                             monthNavigationView
+                        }
+                        .padding(.leading, 16)
+                        .padding(.trailing, 16)
+                        .padding(.top, 8)
+                    } else if displayMode == .monthlyCalendar {
+                        HStack {
+                            dayWeatherView
+                                .onTapGesture {
+                                    FeedBack().feedback(.medium)
+                                    showWeatherSheet = true
+                                }
+                            Spacer(minLength: 0)
                         }
                         .padding(.leading, 16)
                         .padding(.trailing, 16)
@@ -118,27 +171,38 @@ struct DayView: View {
                 }
                 .frame(height: isRainMode ? 112 : 64)
                 .onChange(of: viewModel.date) { _, _ in
-                    if displayMode != .monthlyWorkShift {
+                    switch displayMode {
+                    case .monthlyCalendar:
+                        break
+                    case let .day(kind) where kind == .monthlyWorkShift:
+                        break
+                    default:
                         viewModel.refresh()
                     }
                 }
                 .onChange(of: displayMode) { _, newMode in
                     switch newMode {
-                    case .eventTimeline, .list:
-                        viewModel.refresh()
-                    case .monthlyWorkShift:
-                        monthlyWorkShiftViewModel.month = monthlyViewMonth
-                        monthlyWorkShiftViewModel.refresh()
+                    case let .day(kind):
+                        switch kind {
+                        case .hourlyTimeline, .list:
+                            viewModel.refresh()
+                        case .monthlyWorkShift:
+                            monthlyWorkShiftViewModel.month = monthlyViewMonth
+                            monthlyWorkShiftViewModel.refresh()
+                        }
+                    case .monthlyCalendar:
+                        calendarAnchorMonth = viewModel.date
+                        viewModel.refreshCalendarRange(around: viewModel.date)
                     }
                 }
 
                 ZStack {
                     Group {
                         switch displayMode {
-                        case .eventTimeline:
+                        case .day(.hourlyTimeline):
                             TimeAxisDayView(
                                 dayStart: dayStart,
-                                unitMinutes: isOneHourUnit ? 60 : 30,
+                                unitMinutes: 60,
                                 events: viewModel.events,
                                 workShifts: viewModel.workShifts,
                                 tags: viewModel.tags,
@@ -151,7 +215,7 @@ struct DayView: View {
                                 onDeleteWorkShift: { viewModel.deleteWorkShift($0) },
                                 onRefresh: { await viewModel.refreshAsync() }
                             )
-                        case .list:
+                        case .day(.list):
                             ScheduleListView(
                                 dayStart: dayStart,
                                 dayEnd: dayEnd,
@@ -166,7 +230,30 @@ struct DayView: View {
                                 onDeleteWorkShift: { viewModel.deleteWorkShift($0) },
                                 onRefresh: { await viewModel.refreshAsync() }
                             )
-                        case .monthlyWorkShift:
+                        case .monthlyCalendar:
+                            MonthlyCalendarView(
+                                viewModel: monthCalendarViewModel,
+                                anchorMonth: calendarAnchorMonth,
+                                selectedDate: Binding(
+                                    get: { viewModel.date },
+                                    set: { viewModel.date = $0 }
+                                ),
+                                events: viewModel.calendarRangeEvents,
+                                workShifts: viewModel.calendarRangeWorkShifts,
+                                tags: viewModel.tags,
+                                isLoading: viewModel.isLoadingCalendarRange,
+                                onSelectDay: { day in
+                                    viewModel.date = day
+                                    withAnimation(.linear) {
+                                        displayMode = isTimeAxisMode ? .day(.hourlyTimeline) : .day(.list)
+                                    }
+                                    viewModel.refresh()
+                                },
+                                onRefresh: {
+                                    await viewModel.refreshCalendarRangeAsync(around: calendarAnchorMonth)
+                                }
+                            )
+                        case .day(.monthlyWorkShift):
                             MonthlyWorkShiftGridView(
                                 viewModel: monthlyWorkShiftViewModel,
                                 selectedMonth: $monthlyViewMonth,
@@ -183,13 +270,13 @@ struct DayView: View {
                 .onAppear {
                     if !hasSyncedDisplayModeFromStorage {
                         hasSyncedDisplayModeFromStorage = true
-                        displayMode = isTimeAxisMode ? .eventTimeline : .list
+                        displayMode = isTimeAxisMode ? .day(.hourlyTimeline) : .day(.list)
                     }
                 }
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 20)
                         .onChanged { value in
-                            guard displayMode != .monthlyWorkShift else { return }
+                            guard allowsDaySwipeNavigation else { return }
                             let dx = value.translation.width
                             let dy = value.translation.height
                             // 横方向が優位なときだけ矢印用の値を更新
@@ -199,7 +286,7 @@ struct DayView: View {
                             }
                         }
                         .onEnded { value in
-                            guard displayMode != .monthlyWorkShift else {
+                            guard allowsDaySwipeNavigation else {
                                 swipeTranslation = 0
                                 return
                             }
@@ -226,59 +313,14 @@ struct DayView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    if displayMode == .monthlyWorkShift {
-                        Button {
-                            FeedBack().feedback(.medium)
-                            withAnimation(.linear) {
-                                displayMode = isTimeAxisMode ? .eventTimeline : .list
-                            }
-                        } label: {
-                            Image(systemName: "calendar.day.timeline.left")
-                        }
-                    } else {
-                        Button {
-                            FeedBack().feedback(.medium)
-                            withAnimation(.linear) {
-                                displayMode = .monthlyWorkShift
-                                monthlyViewMonth = viewModel.date
-                            }
-                        } label: {
-                            Image(systemName: "rectangle.grid.1x2")
-                        }
+                    Button {
+                        cycleToolbarDisplay()
+                    } label: {
+                        Image(systemName: toolbarDisplayOption(from: displayMode).symbolName)
                     }
-                }
-                if displayMode != .monthlyWorkShift {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            FeedBack().feedback(.medium)
-                            withAnimation(.linear) {
-                                switch displayMode {
-                                case .eventTimeline:
-                                    displayMode = .list
-                                    isTimeAxisMode = false
-                                case .list:
-                                    displayMode = .eventTimeline
-                                    isTimeAxisMode = true
-                                case .monthlyWorkShift:
-                                    break
-                                }
-                            }
-                        } label: {
-                            Image(systemName: displayMode == .list ? "list.bullet" : "calendar")
-                        }
-                    }
-                }
-                if displayMode == .eventTimeline {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            FeedBack().feedback(.light)
-                            withAnimation {
-                                isOneHourUnit.toggle()
-                            }
-                        } label: {
-                            Image(systemName: isOneHourUnit ? "plus.magnifyingglass" : "minus.magnifyingglass")
-                        }
-                    }
+                    .tint(Color.black)
+                    .accessibilityLabel("表示: \(toolbarDisplayOption(from: displayMode).title)")
+                    .accessibilityHint("次の表示に切り替え")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -296,7 +338,12 @@ struct DayView: View {
                 ScheduleDetailView(item: item, tags: viewModel.tags, payRates: viewModel.payRates, hourlyRates: viewModel.hourlyRates, shiftTemplates: viewModel.shiftTemplates, onRefresh: { viewModel.refresh() }, onDismiss: { selectedDetailItem = nil })
             }
             .sheet(isPresented: $isPresentingCreateSheet) {
-                CreateItemSheet(initialDate: viewModel.date, onSaved: { viewModel.refresh() })
+                CreateItemSheet(initialDate: viewModel.date, onSaved: {
+                    viewModel.refresh()
+                    if displayMode == .monthlyCalendar {
+                        viewModel.refreshCalendarRange(around: calendarAnchorMonth)
+                    }
+                })
             }
             .sheet(isPresented: $showWeatherSheet) {
                 WeatherTimelineView(
@@ -322,6 +369,51 @@ struct DayView: View {
             }
             .onAppear {
                 viewModel.refresh()
+            }
+        }
+    }
+
+    private func toolbarDisplayOption(from mode: DayViewMode) -> MainToolbarDisplayOption {
+        switch mode {
+        case .monthlyCalendar: return .monthlyCalendar
+        case let .day(kind):
+            switch kind {
+            case .hourlyTimeline: return .hourlyTimeline
+            case .list: return .list
+            case .monthlyWorkShift: return .monthlyWorkShift
+            }
+        }
+    }
+
+    /// 1時間おき → リスト → 勤務表 → 月カレンダー → 1時間おき …
+    private func nextToolbarDisplay(after current: MainToolbarDisplayOption) -> MainToolbarDisplayOption {
+        MainToolbarDisplayOption(rawValue: current.rawValue + 1) ?? .hourlyTimeline
+    }
+
+    private func cycleToolbarDisplay() {
+        let next = nextToolbarDisplay(after: toolbarDisplayOption(from: displayMode))
+        applyToolbarDisplay(next)
+    }
+
+    private func applyToolbarDisplay(_ option: MainToolbarDisplayOption) {
+        guard option != toolbarDisplayOption(from: displayMode) else { return }
+        FeedBack().feedback(.medium)
+        withAnimation(.linear) {
+            switch option {
+            case .hourlyTimeline:
+                displayMode = .day(.hourlyTimeline)
+                isTimeAxisMode = true
+            case .list:
+                displayMode = .day(.list)
+                isTimeAxisMode = false
+            case .monthlyWorkShift:
+                displayMode = .day(.monthlyWorkShift)
+                monthlyViewMonth = viewModel.date
+                monthlyWorkShiftViewModel.month = monthlyViewMonth
+                monthlyWorkShiftViewModel.refresh()
+            case .monthlyCalendar:
+                calendarAnchorMonth = viewModel.date
+                displayMode = .monthlyCalendar
             }
         }
     }

@@ -25,6 +25,10 @@ final class DayViewModel {
     /// 当日の時間別天気（0〜23時）。todayWeather と同時に取得
     var todayHourlyWeather: [HourlyWeatherItem] = []
     var isLoading: Bool = false
+    /// 月カレンダー（縦スクロール）用。単日の `events` / `workShifts` とは別に保持する。
+    var calendarRangeEvents: [Event] = []
+    var calendarRangeWorkShifts: [WorkShift] = []
+    var isLoadingCalendarRange: Bool = false
     var errorMessage: String?
 
     init(
@@ -129,5 +133,36 @@ final class DayViewModel {
             }
         }
     }
-}
 
+    /// 月カレンダー表示用：指定月を中心に前後12か月ぶんの予定を読み込む（単日表示の配列は上書きしない）。
+    func refreshCalendarRangeAsync(around center: Date) async {
+        await MainActor.run { isLoadingCalendarRange = true }
+        do {
+            let uid = try await authRepository.ensureSignedInAnonymously()
+            let cal = Calendar.current
+            let monthStart = center.startOfMonth()
+            guard let fetchStart = cal.date(byAdding: .month, value: -12, to: monthStart),
+                  let fetchEnd = cal.date(byAdding: .month, value: 13, to: monthStart)
+            else {
+                await MainActor.run { isLoadingCalendarRange = false }
+                return
+            }
+            async let evTask = eventRepository.listActiveOverlapping(uid: uid, start: fetchStart, end: fetchEnd)
+            async let wsTask = workShiftRepository.listActiveOverlapping(uid: uid, start: fetchStart, end: fetchEnd)
+            let (fetchedEvents, fetchedShifts) = try await (evTask, wsTask)
+            await MainActor.run {
+                self.calendarRangeEvents = fetchedEvents
+                self.calendarRangeWorkShifts = fetchedShifts
+                self.errorMessage = nil
+            }
+            await MainActor.run { loadTagsPayRatesAndWeatherInBackground() }
+        } catch {
+            await MainActor.run { self.errorMessage = error.localizedDescription }
+        }
+        await MainActor.run { isLoadingCalendarRange = false }
+    }
+
+    func refreshCalendarRange(around center: Date) {
+        Task { await refreshCalendarRangeAsync(around: center) }
+    }
+}
