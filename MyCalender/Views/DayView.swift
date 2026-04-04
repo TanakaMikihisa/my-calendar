@@ -245,7 +245,7 @@ struct DayView: View {
                                 workShifts: viewModel.calendarRangeWorkShifts,
                                 tags: viewModel.tags,
                                 isLoading: viewModel.isLoadingCalendarRange,
-                                isMultiSelectMode: isMonthCalendarSelectionMode,
+                                isMultiSelectMode: $isMonthCalendarSelectionMode,
                                 multiSelectedDates: $monthCalendarSelectedDates,
                                 onSelectDay: { day in
                                     let d = day.startOfDay()

@@ -4,13 +4,16 @@ import SwiftUI
 struct MonthlyCalendarView: View {
     private let viewModel: MonthCalendarViewModel
 
+    /// 長押しで選択モードに入った直後の指離しで `Button` のトグルが走るのを1回だけ抑止する
+    @State private var pendingIgnoreToggleDay: Date?
+
     var anchorMonth: Date
     @Binding var selectedDate: Date
     var events: [Event]
     var workShifts: [WorkShift]
     var tags: [Tag]
     var isLoading: Bool
-    var isMultiSelectMode: Bool
+    @Binding var isMultiSelectMode: Bool
     @Binding var multiSelectedDates: Set<Date>
     var onSelectDay: (Date) -> Void
     var onRefresh: () async -> Void
@@ -25,7 +28,7 @@ struct MonthlyCalendarView: View {
         workShifts: [WorkShift],
         tags: [Tag],
         isLoading: Bool,
-        isMultiSelectMode: Bool = false,
+        isMultiSelectMode: Binding<Bool> = .constant(false),
         multiSelectedDates: Binding<Set<Date>> = .constant([]),
         onSelectDay: @escaping (Date) -> Void,
         onRefresh: @escaping () async -> Void,
@@ -38,7 +41,7 @@ struct MonthlyCalendarView: View {
         self.workShifts = workShifts
         self.tags = tags
         self.isLoading = isLoading
-        self.isMultiSelectMode = isMultiSelectMode
+        self._isMultiSelectMode = isMultiSelectMode
         self._multiSelectedDates = multiSelectedDates
         self.onSelectDay = onSelectDay
         self.onRefresh = onRefresh
@@ -151,6 +154,10 @@ struct MonthlyCalendarView: View {
         let barStackHeight = barCount == 0 ? CGFloat(0) : CGFloat(barCount * 5 - 2)
 
         return Button {
+            if pendingIgnoreToggleDay == dayStart {
+                pendingIgnoreToggleDay = nil
+                return
+            }
             FeedBack().feedback(.medium)
             if isMultiSelectMode {
                 if multiSelectedDates.contains(dayStart) {
@@ -199,6 +206,18 @@ struct MonthlyCalendarView: View {
             .frame(minHeight: 52)
         }
         .buttonStyle(.plain)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5)
+                .onEnded { _ in
+                    guard !isMultiSelectMode else { return }
+                    pendingIgnoreToggleDay = dayStart
+                    FeedBack().feedback(.medium)
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isMultiSelectMode = true
+                        multiSelectedDates.insert(dayStart)
+                    }
+                }
+        )
     }
 
     private func barFillColor(hex: String) -> Color {
@@ -218,6 +237,7 @@ struct MonthlyCalendarView: View {
         workShifts: [],
         tags: [],
         isLoading: false,
+        isMultiSelectMode: .constant(false),
         onSelectDay: { _ in },
         onRefresh: {}
     )
