@@ -7,6 +7,9 @@ struct MonthlyCalendarView: View {
     /// 長押しで選択モードに入った直後の指離しで `Button` のトグルが走るのを1回だけ抑止する
     @State private var pendingIgnoreToggleDay: Date?
 
+    /// 複数選択モード中に `multiSelectedDates` が一度でも変わったら true（空のままではモードを自動オフにしない）
+    @State private var multiSelectedDatesChangedWhileInMode = false
+
     var anchorMonth: Date
     @Binding var selectedDate: Date
     var events: [Event]
@@ -91,6 +94,26 @@ struct MonthlyCalendarView: View {
                 }
                 DispatchQueue.main.async {
                     scrollToTodayTrigger = nil
+                }
+            }
+            .onChange(of: isMultiSelectMode) { wasOn, isOn in
+                if wasOn, !isOn {
+                    multiSelectedDatesChangedWhileInMode = false
+                } else if !wasOn, isOn {
+                    // 「選択」で空のまま入ったときは false のまま。長押しで日付が入る場合は true 相当。
+                    multiSelectedDatesChangedWhileInMode = !multiSelectedDates.isEmpty
+                }
+            }
+            .onChange(of: multiSelectedDates) { old, new in
+                guard isMultiSelectMode else { return }
+                if old != new {
+                    multiSelectedDatesChangedWhileInMode = true
+                }
+                if new.isEmpty, multiSelectedDatesChangedWhileInMode {
+                    multiSelectedDatesChangedWhileInMode = false
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isMultiSelectMode = false
+                    }
                 }
             }
         }
