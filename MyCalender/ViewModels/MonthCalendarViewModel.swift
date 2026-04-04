@@ -68,7 +68,8 @@ final class MonthCalendarViewModel {
         isMultiSelectMode: Bool,
         events: [Event],
         workShifts: [WorkShift],
-        tags: [Tag]
+        tags: [Tag],
+        holidayStartOfDays: Set<Date>
     ) -> MonthCalendarDayCellState {
         let dayStart = day.startOfDay()
         let dayEnd = day.endOfDay()
@@ -81,12 +82,14 @@ final class MonthCalendarViewModel {
         }
         let weekday = calendar.component(.weekday, from: day)
         let isWeekend = weekday == 1 || weekday == 7
+        let isHoliday = holidayStartOfDays.contains(dayStart)
         let barHexes = barColorHexes(dayStart: dayStart, dayEnd: dayEnd, events: events, workShifts: workShifts, tags: tags)
         return MonthCalendarDayCellState(
             dayNumber: calendar.component(.day, from: day),
             isToday: isToday,
             isSelected: isSelected,
             isWeekend: isWeekend,
+            isHoliday: isHoliday,
             barColorHexes: barHexes
         )
     }
@@ -139,5 +142,6 @@ struct MonthCalendarDayCellState: Equatable {
     let isToday: Bool
     let isSelected: Bool
     let isWeekend: Bool
+    let isHoliday: Bool
     let barColorHexes: [String]
 }

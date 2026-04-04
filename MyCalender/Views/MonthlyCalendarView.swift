@@ -10,6 +10,9 @@ struct MonthlyCalendarView: View {
     /// 複数選択モード中に `multiSelectedDates` が一度でも変わったら true（空のままではモードを自動オフにしない）
     @State private var multiSelectedDatesChangedWhileInMode = false
 
+    /// 内閣府CSVから取得した祝日（`Calendar.current` の startOfDay）
+    @State private var holidayStartOfDays: Set<Date> = []
+
     var anchorMonth: Date
     @Binding var selectedDate: Date
     var events: [Event]
@@ -116,6 +119,13 @@ struct MonthlyCalendarView: View {
                     }
                 }
             }
+            .task {
+                do {
+                    holidayStartOfDays = try await JapaneseHolidayCSVFetcher.fetchHolidayStartOfDays()
+                } catch {
+                    holidayStartOfDays = []
+                }
+            }
         }
     }
 
@@ -170,7 +180,8 @@ struct MonthlyCalendarView: View {
             isMultiSelectMode: isMultiSelectMode,
             events: events,
             workShifts: workShifts,
-            tags: tags
+            tags: tags,
+            holidayStartOfDays: holidayStartOfDays
         )
         let dayStart = day.startOfDay()
         let barCount = min(state.barColorHexes.count, 4)
@@ -209,7 +220,9 @@ struct MonthlyCalendarView: View {
                         .foregroundStyle(
                             state.isToday
                                 ? Color.white
-                                : (state.isSelected ? Color.accentColor : (state.isWeekend ? Color.secondary : Color.primary))
+                                : (state.isSelected
+                                    ? Color.accentColor
+                                    : ((state.isWeekend || state.isHoliday) ? Color.secondary : Color.primary))
                         )
                 }
                 .frame(height: 34)
