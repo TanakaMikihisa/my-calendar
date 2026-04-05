@@ -68,7 +68,6 @@ final class DayViewModel {
     func refreshAsync() async {
         await MainActor.run { isLoading = true }
         do {
-            try await authRepository.ensureSignedInAnonymously()
             let start = date.startOfDay()
             let end = date.endOfDay()
 
@@ -104,7 +103,6 @@ final class DayViewModel {
     private func loadTagsPayRatesAndWeatherInBackground() {
         Task { @MainActor in
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 async let tagsTask = tagRepository.listActive()
                 async let payRatesTask = payRateRepository.listActive()
                 async let hourlyRatesTask = hourlyRateRepository.listActive()
@@ -129,7 +127,6 @@ final class DayViewModel {
     func deleteEvent(_ event: Event) {
         Task { @MainActor in
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 try await eventRepository.deactivate(eventId: event.id)
                 self.errorMessage = nil
                 withAnimation(.easeOut(duration: 0.25)) { refresh() }
@@ -142,7 +139,6 @@ final class DayViewModel {
     func deleteWorkShift(_ shift: WorkShift) {
         Task { @MainActor in
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 try await workShiftRepository.deactivate(shiftId: shift.id)
                 self.errorMessage = nil
                 withAnimation(.easeOut(duration: 0.25)) { refresh() }
@@ -156,7 +152,6 @@ final class DayViewModel {
     func refreshCalendarRangeAsync(around center: Date) async {
         await MainActor.run { isLoadingCalendarRange = true }
         do {
-            try await authRepository.ensureSignedInAnonymously()
             let cal = Calendar.current
             let monthStart = center.startOfMonth()
             let past = 24 + calendarExtraPastMonths

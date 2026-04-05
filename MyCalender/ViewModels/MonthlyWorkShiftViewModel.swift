@@ -158,7 +158,6 @@ final class MonthlyWorkShiftViewModel {
     func refreshAsync() async {
         await MainActor.run { isLoading = true }
         do {
-            try await authRepository.ensureSignedInAnonymously()
             let start = month.startOfMonth(in: calendar)
             let end = month.endOfMonth(in: calendar)
 
@@ -183,7 +182,6 @@ final class MonthlyWorkShiftViewModel {
 
     /// 指定日の勤務をテンプレートから1件作成して保存し、refresh する
     func createShiftFromTemplate(_ template: ShiftTemplate, on date: Date) async throws {
-        try await authRepository.ensureSignedInAnonymously()
         let calendar = Calendar.current
         let workShiftDate = calendar.startOfDay(for: date)
         guard let start = Date.applyingTime(template.startTime, to: workShiftDate, calendar: calendar) else {
@@ -219,7 +217,6 @@ final class MonthlyWorkShiftViewModel {
     func deleteWorkShift(_ shift: WorkShift) {
         Task { @MainActor in
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 try await workShiftRepository.deactivate(shiftId: shift.id)
                 errorMessage = nil
                 withAnimation(.easeOut(duration: 0.25)) { refresh() }

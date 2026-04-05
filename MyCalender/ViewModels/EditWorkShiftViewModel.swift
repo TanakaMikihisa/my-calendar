@@ -58,7 +58,6 @@ final class EditWorkShiftViewModel {
     func loadTags() {
         Task { @MainActor in
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 tags = try await tagRepository.listActive()
             } catch {
                 errorMessage = error.localizedDescription
@@ -69,7 +68,6 @@ final class EditWorkShiftViewModel {
     func loadPayRates() {
         Task { @MainActor in
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 payRates = try await payRateRepository.listActive()
             } catch {
                 errorMessage = error.localizedDescription
@@ -80,7 +78,6 @@ final class EditWorkShiftViewModel {
     func loadHourlyRates() {
         Task { @MainActor in
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 hourlyRates = try await hourlyRateRepository.listActive()
             } catch {
                 errorMessage = error.localizedDescription
@@ -132,7 +129,6 @@ final class EditWorkShiftViewModel {
         defer { Task { @MainActor in isSaving = false } }
 
         do {
-            try await authRepository.ensureSignedInAnonymously()
             let now = Date()
             let trimmedCompany = companyNameText.trimmingCharacters(in: .whitespacesAndNewlines)
             let companyName: String? = payType == .fixed && !trimmedCompany.isEmpty ? trimmedCompany : nil
@@ -163,7 +159,6 @@ final class EditWorkShiftViewModel {
 
     func delete() async -> Bool {
         do {
-            try await authRepository.ensureSignedInAnonymously()
             try await workShiftRepository.deactivate(shiftId: shiftId)
             await MainActor.run { errorMessage = nil }
             return true
