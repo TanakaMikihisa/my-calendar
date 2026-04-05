@@ -1,18 +1,18 @@
-import Foundation
 import FirebaseFirestore
+import Foundation
 
 protocol WorkShiftRepositoryProtocol: Sendable {
-    func listActiveOverlapping(uid: String, start: Date, end: Date) async throws -> [WorkShift]
-    func upsert(uid: String, shift: WorkShift) async throws
-    func deactivate(uid: String, shiftId: WorkShiftID) async throws
+    func listActiveOverlapping(start: Date, end: Date) async throws -> [WorkShift]
+    func upsert(shift: WorkShift) async throws
+    func deactivate(shiftId: WorkShiftID) async throws
 }
 
 actor FirestoreWorkShiftRepository: WorkShiftRepositoryProtocol {
     private let db = Firestore.firestore()
 
-    func listActiveOverlapping(uid: String, start: Date, end: Date) async throws -> [WorkShift] {
+    func listActiveOverlapping(start: Date, end: Date) async throws -> [WorkShift] {
         let snapshot = try await db
-            .collection(FirestorePaths.workShifts(uid: uid))
+            .collection(FirestorePaths.workShifts)
             .whereField("isActive", isEqualTo: true)
             .whereField("startAt", isLessThan: end)
             .order(by: "startAt")
@@ -23,8 +23,8 @@ actor FirestoreWorkShiftRepository: WorkShiftRepositoryProtocol {
             .filter { $0.endAt > start }
     }
 
-    func upsert(uid: String, shift: WorkShift) async throws {
-        let ref = await db.collection(FirestorePaths.workShifts(uid: uid)).document(shift.id)
+    func upsert(shift: WorkShift) async throws {
+        let ref = await db.collection(FirestorePaths.workShifts).document(shift.id)
         var data = await shift.toFirestoreData()
         let snapshot = try await ref.getDocument()
         if snapshot.exists {
@@ -33,11 +33,11 @@ actor FirestoreWorkShiftRepository: WorkShiftRepositoryProtocol {
         try await ref.setData(data, merge: true)
     }
 
-    func deactivate(uid: String, shiftId: WorkShiftID) async throws {
-        let ref = await db.collection(FirestorePaths.workShifts(uid: uid)).document(shiftId)
+    func deactivate(shiftId: WorkShiftID) async throws {
+        let ref = await db.collection(FirestorePaths.workShifts).document(shiftId)
         try await ref.updateData([
             "isActive": false,
-            "updatedAt": FieldValue.serverTimestamp(),
+            "updatedAt": FieldValue.serverTimestamp()
         ])
     }
 
@@ -47,18 +47,18 @@ actor FirestoreWorkShiftRepository: WorkShiftRepositoryProtocol {
         let payType = WorkPayType(rawValue: payTypeRaw) ?? .hourly
 
         let breakMinutes = (data["breakMinutes"] as? Int) ?? (data["breakMinutes"] as? Int64).map { Int($0) } ?? 0
-        return WorkShift(
+        return try WorkShift(
             id: doc.documentID,
-            startAt: try FirestoreMappers.date(data["startAt"], key: "startAt"),
-            endAt: try FirestoreMappers.date(data["endAt"], key: "endAt"),
+            startAt: FirestoreMappers.date(data["startAt"], key: "startAt"),
+            endAt: FirestoreMappers.date(data["endAt"], key: "endAt"),
             breakMinutes: breakMinutes,
             payType: payType,
             payRateId: data["payRateId"] as? String,
             hourlyRateId: data["hourlyRateId"] as? String,
-            fixedPay: try FirestoreMappers.decimal(data["fixedPay"], key: "fixedPay"),
+            fixedPay: FirestoreMappers.decimal(data["fixedPay"], key: "fixedPay"),
             companyName: data["companyName"] as? String,
             templateId: data["templateId"] as? String,
-            tagIds: try FirestoreMappers.stringArray(data["tagIds"], key: "tagIds"),
+            tagIds: FirestoreMappers.stringArray(data["tagIds"], key: "tagIds"),
             isActive: (data["isActive"] as? Bool) ?? true,
             createdAt: (try? FirestoreMappers.date(data["createdAt"], key: "createdAt")) ?? Date.distantPast,
             updatedAt: (try? FirestoreMappers.date(data["updatedAt"], key: "updatedAt")) ?? Date.distantPast
@@ -76,7 +76,7 @@ private extension WorkShift {
             "tagIds": tagIds,
             "isActive": isActive,
             "updatedAt": FieldValue.serverTimestamp(),
-            "createdAt": FieldValue.serverTimestamp(),
+            "createdAt": FieldValue.serverTimestamp()
         ]
 
         if let payRateId { dict["payRateId"] = payRateId }
@@ -88,4 +88,3 @@ private extension WorkShift {
         return dict
     }
 }
-

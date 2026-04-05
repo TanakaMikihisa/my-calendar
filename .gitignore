@@ -25,3 +25,4 @@ docs/
 *.p8
 *.p12
 *.mobileprovision
+EnvironmentValue.swift

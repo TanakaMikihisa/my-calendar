@@ -65,10 +65,10 @@ final class DailyScheduleNotificationScheduler: @unchecked Sendable {
 
         guard targetDayStart > now else { return }
 
-        let uid = try await authRepo.ensureSignedInAnonymously()
+        try await authRepo.ensureSignedInAnonymously()
 
-        async let eventsTask = eventRepo.listActiveOverlapping(uid: uid, start: targetDayStart, end: dayEnd)
-        async let shiftsTask = shiftRepo.listActiveOverlapping(uid: uid, start: targetDayStart, end: dayEnd)
+        async let eventsTask = eventRepo.listActiveOverlapping(start: targetDayStart, end: dayEnd)
+        async let shiftsTask = shiftRepo.listActiveOverlapping(start: targetDayStart, end: dayEnd)
 
         let (events, shifts) = try await (eventsTask, shiftsTask)
 
@@ -132,9 +132,9 @@ final class DailyScheduleNotificationScheduler: @unchecked Sendable {
         let dayEnd = targetDayStart.endOfDay(in: calendar)
         guard targetDayStart > now else { return }
 
-        let uid = try await authRepo.ensureSignedInAnonymously()
-        async let eventsTask = eventRepo.listActiveOverlapping(uid: uid, start: targetDayStart, end: dayEnd)
-        async let shiftsTask = shiftRepo.listActiveOverlapping(uid: uid, start: targetDayStart, end: dayEnd)
+        try await authRepo.ensureSignedInAnonymously()
+        async let eventsTask = eventRepo.listActiveOverlapping(start: targetDayStart, end: dayEnd)
+        async let shiftsTask = shiftRepo.listActiveOverlapping(start: targetDayStart, end: dayEnd)
         let (events, shifts) = try await (eventsTask, shiftsTask)
 
         center.removePendingNotificationRequests(withIdentifiers: [testNotificationIdentifier])

@@ -1,12 +1,13 @@
 import Foundation
 
 enum FirestorePaths {
-    static func userRoot(uid: String) -> String { "users/\(uid)" }
-    static func events(uid: String) -> String { "\(userRoot(uid: uid))/events" }
-    static func workShifts(uid: String) -> String { "\(userRoot(uid: uid))/workShifts" }
-    static func shiftTemplates(uid: String) -> String { "\(userRoot(uid: uid))/shiftTemplates" }
-    static func payRates(uid: String) -> String { "\(userRoot(uid: uid))/payRates" }
-    static func hourlyRates(uid: String) -> String { "\(userRoot(uid: uid))/hourlyRates" }
-    static func tags(uid: String) -> String { "\(userRoot(uid: uid))/tags" }
-}
+    /// Firestore のユーザードキュメントは `Environment.userID` 固定（認証 UID とは別）。
+    private static var userRoot: String { "users/\(EnvironmentValue.userID)" }
 
+    static var events: String { "\(userRoot)/events" }
+    static var workShifts: String { "\(userRoot)/workShifts" }
+    static var shiftTemplates: String { "\(userRoot)/shiftTemplates" }
+    static var payRates: String { "\(userRoot)/payRates" }
+    static var hourlyRates: String { "\(userRoot)/hourlyRates" }
+    static var tags: String { "\(userRoot)/tags" }
+}

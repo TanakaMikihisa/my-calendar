@@ -158,14 +158,14 @@ final class MonthlyWorkShiftViewModel {
     func refreshAsync() async {
         await MainActor.run { isLoading = true }
         do {
-            let uid = try await authRepository.ensureSignedInAnonymously()
+            try await authRepository.ensureSignedInAnonymously()
             let start = month.startOfMonth(in: calendar)
             let end = month.endOfMonth(in: calendar)
 
-            async let shiftsTask = workShiftRepository.listActiveOverlapping(uid: uid, start: start, end: end)
-            async let payRatesTask = payRateRepository.listActive(uid: uid)
-            async let hourlyRatesTask = hourlyRateRepository.listActive(uid: uid)
-            async let templatesTask = shiftTemplateRepository.listActive(uid: uid)
+            async let shiftsTask = workShiftRepository.listActiveOverlapping(start: start, end: end)
+            async let payRatesTask = payRateRepository.listActive()
+            async let hourlyRatesTask = hourlyRateRepository.listActive()
+            async let templatesTask = shiftTemplateRepository.listActive()
 
             let (shifts, rates, hourly, templates) = try await (shiftsTask, payRatesTask, hourlyRatesTask, templatesTask)
             await MainActor.run {
@@ -183,7 +183,7 @@ final class MonthlyWorkShiftViewModel {
 
     /// 指定日の勤務をテンプレートから1件作成して保存し、refresh する
     func createShiftFromTemplate(_ template: ShiftTemplate, on date: Date) async throws {
-        let uid = try await authRepository.ensureSignedInAnonymously()
+        try await authRepository.ensureSignedInAnonymously()
         let calendar = Calendar.current
         let workShiftDate = calendar.startOfDay(for: date)
         guard let start = Date.applyingTime(template.startTime, to: workShiftDate, calendar: calendar) else {
@@ -211,7 +211,7 @@ final class MonthlyWorkShiftViewModel {
             createdAt: now,
             updatedAt: now
         )
-        try await workShiftRepository.upsert(uid: uid, shift: shift)
+        try await workShiftRepository.upsert(shift: shift)
         await MainActor.run { refresh() }
     }
 
@@ -219,8 +219,8 @@ final class MonthlyWorkShiftViewModel {
     func deleteWorkShift(_ shift: WorkShift) {
         Task { @MainActor in
             do {
-                let uid = try await authRepository.ensureSignedInAnonymously()
-                try await workShiftRepository.deactivate(uid: uid, shiftId: shift.id)
+                try await authRepository.ensureSignedInAnonymously()
+                try await workShiftRepository.deactivate(shiftId: shift.id)
                 errorMessage = nil
                 withAnimation(.easeOut(duration: 0.25)) { refresh() }
             } catch {

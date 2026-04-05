@@ -68,12 +68,12 @@ final class DayViewModel {
     func refreshAsync() async {
         await MainActor.run { isLoading = true }
         do {
-            let uid = try await authRepository.ensureSignedInAnonymously()
+            try await authRepository.ensureSignedInAnonymously()
             let start = date.startOfDay()
             let end = date.endOfDay()
 
-            async let eventsTask = eventRepository.listActiveOverlapping(uid: uid, start: start, end: end)
-            async let shiftsTask = workShiftRepository.listActiveOverlapping(uid: uid, start: start, end: end)
+            async let eventsTask = eventRepository.listActiveOverlapping(start: start, end: end)
+            async let shiftsTask = workShiftRepository.listActiveOverlapping(start: start, end: end)
 
             let (fetchedEvents, fetchedShifts) = try await (eventsTask, shiftsTask)
             await MainActor.run {
@@ -104,11 +104,11 @@ final class DayViewModel {
     private func loadTagsPayRatesAndWeatherInBackground() {
         Task { @MainActor in
             do {
-                let uid = try await authRepository.ensureSignedInAnonymously()
-                async let tagsTask = tagRepository.listActive(uid: uid)
-                async let payRatesTask = payRateRepository.listActive(uid: uid)
-                async let hourlyRatesTask = hourlyRateRepository.listActive(uid: uid)
-                async let templatesTask = shiftTemplateRepository.listActive(uid: uid)
+                try await authRepository.ensureSignedInAnonymously()
+                async let tagsTask = tagRepository.listActive()
+                async let payRatesTask = payRateRepository.listActive()
+                async let hourlyRatesTask = hourlyRateRepository.listActive()
+                async let templatesTask = shiftTemplateRepository.listActive()
                 self.tags = try await tagsTask
                 self.payRates = try await payRatesTask
                 self.hourlyRates = try await hourlyRatesTask
@@ -129,8 +129,8 @@ final class DayViewModel {
     func deleteEvent(_ event: Event) {
         Task { @MainActor in
             do {
-                let uid = try await authRepository.ensureSignedInAnonymously()
-                try await eventRepository.deactivate(uid: uid, eventId: event.id)
+                try await authRepository.ensureSignedInAnonymously()
+                try await eventRepository.deactivate(eventId: event.id)
                 self.errorMessage = nil
                 withAnimation(.easeOut(duration: 0.25)) { refresh() }
             } catch {
@@ -142,8 +142,8 @@ final class DayViewModel {
     func deleteWorkShift(_ shift: WorkShift) {
         Task { @MainActor in
             do {
-                let uid = try await authRepository.ensureSignedInAnonymously()
-                try await workShiftRepository.deactivate(uid: uid, shiftId: shift.id)
+                try await authRepository.ensureSignedInAnonymously()
+                try await workShiftRepository.deactivate(shiftId: shift.id)
                 self.errorMessage = nil
                 withAnimation(.easeOut(duration: 0.25)) { refresh() }
             } catch {
@@ -156,7 +156,7 @@ final class DayViewModel {
     func refreshCalendarRangeAsync(around center: Date) async {
         await MainActor.run { isLoadingCalendarRange = true }
         do {
-            let uid = try await authRepository.ensureSignedInAnonymously()
+            try await authRepository.ensureSignedInAnonymously()
             let cal = Calendar.current
             let monthStart = center.startOfMonth()
             let past = 24 + calendarExtraPastMonths
@@ -167,8 +167,8 @@ final class DayViewModel {
                 await MainActor.run { isLoadingCalendarRange = false }
                 return
             }
-            async let evTask = eventRepository.listActiveOverlapping(uid: uid, start: fetchStart, end: fetchEnd)
-            async let wsTask = workShiftRepository.listActiveOverlapping(uid: uid, start: fetchStart, end: fetchEnd)
+            async let evTask = eventRepository.listActiveOverlapping(start: fetchStart, end: fetchEnd)
+            async let wsTask = workShiftRepository.listActiveOverlapping(start: fetchStart, end: fetchEnd)
             let (fetchedEvents, fetchedShifts) = try await (evTask, wsTask)
             await MainActor.run {
                 self.calendarRangeEvents = fetchedEvents

@@ -1,42 +1,42 @@
-import Foundation
 import FirebaseFirestore
+import Foundation
 
 protocol ShiftTemplateRepositoryProtocol: Sendable {
-    func listActive(uid: String) async throws -> [ShiftTemplate]
-    func add(uid: String, template: ShiftTemplate) async throws
-    func update(uid: String, template: ShiftTemplate) async throws
-    func deactivate(uid: String, templateId: ShiftTemplateID) async throws
+    func listActive() async throws -> [ShiftTemplate]
+    func add(template: ShiftTemplate) async throws
+    func update(template: ShiftTemplate) async throws
+    func deactivate(templateId: ShiftTemplateID) async throws
 }
 
 actor FirestoreShiftTemplateRepository: ShiftTemplateRepositoryProtocol {
     private let db = Firestore.firestore()
 
-    func listActive(uid: String) async throws -> [ShiftTemplate] {
+    func listActive() async throws -> [ShiftTemplate] {
         let snapshot = try await db
-            .collection(FirestorePaths.shiftTemplates(uid: uid))
+            .collection(FirestorePaths.shiftTemplates)
             .whereField("isActive", isEqualTo: true)
             .order(by: "payRateId")
             .getDocuments()
         return try snapshot.documents.map { try mapTemplate(doc: $0) }
     }
 
-    func add(uid: String, template: ShiftTemplate) async throws {
-        let ref = await db.collection(FirestorePaths.shiftTemplates(uid: uid)).document(template.id)
+    func add(template: ShiftTemplate) async throws {
+        let ref = await db.collection(FirestorePaths.shiftTemplates).document(template.id)
         try await ref.setData(template.toFirestoreData())
     }
 
-    func update(uid: String, template: ShiftTemplate) async throws {
-        let ref = await db.collection(FirestorePaths.shiftTemplates(uid: uid)).document(template.id)
+    func update(template: ShiftTemplate) async throws {
+        let ref = await db.collection(FirestorePaths.shiftTemplates).document(template.id)
         var data = await template.toFirestoreData()
         data.removeValue(forKey: "createdAt")
         try await ref.setData(data, merge: true)
     }
 
-    func deactivate(uid: String, templateId: ShiftTemplateID) async throws {
-        let ref = await db.collection(FirestorePaths.shiftTemplates(uid: uid)).document(templateId)
+    func deactivate(templateId: ShiftTemplateID) async throws {
+        let ref = await db.collection(FirestorePaths.shiftTemplates).document(templateId)
         try await ref.updateData([
             "isActive": false,
-            "updatedAt": FieldValue.serverTimestamp(),
+            "updatedAt": FieldValue.serverTimestamp()
         ])
     }
 
@@ -49,7 +49,7 @@ actor FirestoreShiftTemplateRepository: ShiftTemplateRepositoryProtocol {
         let payRateId = (data["payRateId"] as? String) ?? ""
 
         let breakMinutes = (data["breakMinutes"] as? Int) ?? (data["breakMinutes"] as? Int64).map { Int($0) } ?? 0
-        return ShiftTemplate(
+        return try ShiftTemplate(
             id: doc.documentID,
             payRateId: payRateId,
             hourlyRateId: data["hourlyRateId"] as? String,
@@ -58,7 +58,7 @@ actor FirestoreShiftTemplateRepository: ShiftTemplateRepositoryProtocol {
             endTime: (data["endTime"] as? String) ?? "17:00",
             breakMinutes: breakMinutes,
             payType: payType,
-            fixedPay: try FirestoreMappers.decimal(data["fixedPay"], key: "fixedPay"),
+            fixedPay: FirestoreMappers.decimal(data["fixedPay"], key: "fixedPay"),
             isActive: (data["isActive"] as? Bool) ?? true,
             createdAt: (try? FirestoreMappers.date(data["createdAt"], key: "createdAt")) ?? .distantPast,
             updatedAt: (try? FirestoreMappers.date(data["updatedAt"], key: "updatedAt")) ?? .distantPast
@@ -77,7 +77,7 @@ private extension ShiftTemplate {
             "payType": payType.rawValue,
             "isActive": isActive,
             "createdAt": FieldValue.serverTimestamp(),
-            "updatedAt": FieldValue.serverTimestamp(),
+            "updatedAt": FieldValue.serverTimestamp()
         ]
         if let hourlyRateId { dict["hourlyRateId"] = hourlyRateId }
         if let fixedPay { dict["fixedPay"] = (fixedPay as NSDecimalNumber) }

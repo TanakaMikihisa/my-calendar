@@ -1,5 +1,5 @@
-import Foundation
 import CoreLocation
+import Foundation
 
 // MARK: - Protocol
 
@@ -15,55 +15,40 @@ final class DefaultLocationRepository: NSObject, LocationRepositoryProtocol {
     private let manager = CLLocationManager()
     private var continuation: CheckedContinuation<CLLocation?, Never>?
 
+    override init() {
+        super.init()
+        manager.delegate = self
+    }
+
     func currentLocation() async -> CLLocation? {
-        await withCheckedContinuation { cont in
+        // 実行中の待ちがある場合は先に解放（二重待ち・クラッシュ防止）
+        resumeContinuation(returning: nil)
+
+        return await withCheckedContinuation { cont in
             self.continuation = cont
-            manager.delegate = self
+
             switch manager.authorizationStatus {
             case .notDetermined:
+                // 結果は locationManagerDidChangeAuthorization で受け取り、許可後に requestLocation
                 manager.requestWhenInUseAuthorization()
-                startResumeTimeout()
             case .authorizedWhenInUse, .authorizedAlways:
                 manager.requestLocation()
-                startResumeTimeout()
             case .denied, .restricted:
-                cont.resume(returning: nil)
-                continuation = nil
+                resumeContinuation(returning: nil)
             @unknown default:
-                cont.resume(returning: nil)
-                continuation = nil
+                resumeContinuation(returning: nil)
             }
         }
     }
 
-    ///  continuation が一度も resume されない場合のリーク防止（必ず1回だけ resume）
-    private func startResumeTimeout() {
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
-            resumeWith(nil)
-        }
-    }
-
-    private func resumeWith(_ location: CLLocation?) {
-        guard continuation != nil else { return }
+    /// `continuation` があれば1回だけ `resume` し、直後に `nil` にして二重再開を防ぐ
+    private func resumeContinuation(returning location: CLLocation?) {
         continuation?.resume(returning: location)
         continuation = nil
     }
 }
 
 extension DefaultLocationRepository: CLLocationManagerDelegate {
-    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        Task { @MainActor [weak self] in
-            self?.resumeWith(locations.last)
-        }
-    }
-
-    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        Task { @MainActor [weak self] in
-            self?.resumeWith(nil)
-        }
-    }
-
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -71,10 +56,27 @@ extension DefaultLocationRepository: CLLocationManagerDelegate {
             case .authorizedWhenInUse, .authorizedAlways:
                 manager.requestLocation()
             case .denied, .restricted:
-                self.resumeWith(nil)
-            default:
+                resumeContinuation(returning: nil)
+            case .notDetermined:
                 break
+            @unknown default:
+                resumeContinuation(returning: nil)
             }
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        Task { @MainActor [weak self] in
+            self?.resumeContinuation(returning: locations.last)
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        #if DEBUG
+            print("⚠️ 位置情報取得エラー: \(error.localizedDescription)")
+        #endif
+        Task { @MainActor [weak self] in
+            self?.resumeContinuation(returning: nil)
         }
     }
 }

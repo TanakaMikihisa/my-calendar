@@ -78,8 +78,8 @@ final class CreateWorkShiftViewModel {
     func loadPayRates() {
         Task { @MainActor in
             do {
-                let uid = try await authRepository.ensureSignedInAnonymously()
-                payRates = try await payRateRepository.listActive(uid: uid)
+                try await authRepository.ensureSignedInAnonymously()
+                payRates = try await payRateRepository.listActive()
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -89,8 +89,8 @@ final class CreateWorkShiftViewModel {
     func loadHourlyRates() {
         Task { @MainActor in
             do {
-                let uid = try await authRepository.ensureSignedInAnonymously()
-                hourlyRates = try await hourlyRateRepository.listActive(uid: uid)
+                try await authRepository.ensureSignedInAnonymously()
+                hourlyRates = try await hourlyRateRepository.listActive()
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -100,8 +100,8 @@ final class CreateWorkShiftViewModel {
     func loadShiftTemplates() {
         Task { @MainActor in
             do {
-                let uid = try await authRepository.ensureSignedInAnonymously()
-                shiftTemplates = try await shiftTemplateRepository.listActive(uid: uid)
+                try await authRepository.ensureSignedInAnonymously()
+                shiftTemplates = try await shiftTemplateRepository.listActive()
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -203,7 +203,7 @@ final class CreateWorkShiftViewModel {
         defer { Task { @MainActor in isSaving = false } }
 
         do {
-            let uid = try await authRepository.ensureSignedInAnonymously()
+            try await authRepository.ensureSignedInAnonymously()
             let now = Date()
             let shift: WorkShift
             switch workShiftCreateMode {
@@ -252,7 +252,7 @@ final class CreateWorkShiftViewModel {
                     updatedAt: now
                 )
             }
-            try await workShiftRepository.upsert(uid: uid, shift: shift)
+            try await workShiftRepository.upsert(shift: shift)
             await MainActor.run { errorMessage = nil }
             return true
         } catch {

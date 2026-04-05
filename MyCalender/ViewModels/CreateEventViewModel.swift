@@ -36,8 +36,8 @@ final class CreateEventViewModel {
     func loadTags() {
         Task { @MainActor in
             do {
-                let uid = try await authRepository.ensureSignedInAnonymously()
-                tags = try await tagRepository.listActive(uid: uid)
+                try await authRepository.ensureSignedInAnonymously()
+                tags = try await tagRepository.listActive()
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -79,7 +79,7 @@ final class CreateEventViewModel {
         defer { Task { @MainActor in isSaving = false } }
 
         do {
-            let uid = try await authRepository.ensureSignedInAnonymously()
+            try await authRepository.ensureSignedInAnonymously()
             let now = Date()
             let event = Event(
                 id: UUID().uuidString,
@@ -93,7 +93,7 @@ final class CreateEventViewModel {
                 createdAt: now,
                 updatedAt: now
             )
-            try await eventRepository.upsert(uid: uid, event: event)
+            try await eventRepository.upsert(event: event)
             await MainActor.run { errorMessage = nil }
             return true
         } catch {
@@ -113,7 +113,7 @@ final class CreateEventViewModel {
         defer { Task { @MainActor in isSaving = false } }
 
         do {
-            let uid = try await authRepository.ensureSignedInAnonymously()
+            try await authRepository.ensureSignedInAnonymously()
             let now = Date()
 
             let baseStartHour = calendar.component(.hour, from: startAt)
@@ -142,7 +142,7 @@ final class CreateEventViewModel {
                     createdAt: now,
                     updatedAt: now
                 )
-                try await eventRepository.upsert(uid: uid, event: event)
+                try await eventRepository.upsert(event: event)
             }
 
             await MainActor.run { errorMessage = nil }
