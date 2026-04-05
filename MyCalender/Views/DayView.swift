@@ -284,7 +284,7 @@ struct DayView: View {
                     Button {
                         goToToday()
                     } label: {
-                        Image(systemName: "eject.fill")
+                        Image(systemName: "arrow.uturn.backward")
                             .font(.subheadline.weight(.semibold))
                             .padding(.horizontal, 20)
                             .padding(.vertical, 20)
