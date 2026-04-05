@@ -40,7 +40,6 @@ final class EditEventViewModel {
     func loadTags() {
         Task { @MainActor in
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 tags = try await tagRepository.listActive()
             } catch {
                 errorMessage = error.localizedDescription
@@ -69,7 +68,6 @@ final class EditEventViewModel {
         defer { Task { @MainActor in isSaving = false } }
 
         do {
-            try await authRepository.ensureSignedInAnonymously()
             let now = Date()
             let event = Event(
                 id: eventId,
@@ -94,7 +92,6 @@ final class EditEventViewModel {
 
     func delete() async -> Bool {
         do {
-            try await authRepository.ensureSignedInAnonymously()
             try await eventRepository.deactivate(eventId: eventId)
             await MainActor.run { errorMessage = nil }
             return true

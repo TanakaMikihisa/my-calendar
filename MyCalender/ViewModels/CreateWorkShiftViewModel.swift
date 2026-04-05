@@ -78,7 +78,6 @@ final class CreateWorkShiftViewModel {
     func loadPayRates() {
         Task { @MainActor in
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 payRates = try await payRateRepository.listActive()
             } catch {
                 errorMessage = error.localizedDescription
@@ -89,7 +88,6 @@ final class CreateWorkShiftViewModel {
     func loadHourlyRates() {
         Task { @MainActor in
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 hourlyRates = try await hourlyRateRepository.listActive()
             } catch {
                 errorMessage = error.localizedDescription
@@ -100,7 +98,6 @@ final class CreateWorkShiftViewModel {
     func loadShiftTemplates() {
         Task { @MainActor in
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 shiftTemplates = try await shiftTemplateRepository.listActive()
             } catch {
                 errorMessage = error.localizedDescription
@@ -203,7 +200,6 @@ final class CreateWorkShiftViewModel {
         defer { Task { @MainActor in isSaving = false } }
 
         do {
-            try await authRepository.ensureSignedInAnonymously()
             let now = Date()
             let shift: WorkShift
             switch workShiftCreateMode {

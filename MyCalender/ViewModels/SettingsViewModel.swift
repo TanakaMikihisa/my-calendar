@@ -35,7 +35,6 @@ final class SettingsViewModel {
             isLoading = true
             defer { isLoading = false }
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 tags = try await tagRepository.listActive()
                 errorMessage = nil
             } catch {
@@ -49,7 +48,6 @@ final class SettingsViewModel {
             isLoading = true
             defer { isLoading = false }
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 payRates = try await payRateRepository.listActive()
                 errorMessage = nil
             } catch {
@@ -63,7 +61,6 @@ final class SettingsViewModel {
             isLoading = true
             defer { isLoading = false }
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 shiftTemplates = try await shiftTemplateRepository.listActive()
                 errorMessage = nil
             } catch {
@@ -77,7 +74,6 @@ final class SettingsViewModel {
             isLoading = true
             defer { isLoading = false }
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 hourlyRates = try await hourlyRateRepository.listActive()
                 errorMessage = nil
             } catch {
@@ -91,7 +87,6 @@ final class SettingsViewModel {
             isLoading = true
             defer { isLoading = false }
             do {
-                try await authRepository.ensureSignedInAnonymously()
                 async let tagsTask = tagRepository.listActive()
                 async let payRatesTask = payRateRepository.listActive()
                 async let hourlyRatesTask = hourlyRateRepository.listActive()
@@ -111,7 +106,6 @@ final class SettingsViewModel {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         do {
-            try await authRepository.ensureSignedInAnonymously()
             let tag = Tag(
                 id: UUID().uuidString,
                 name: trimmed,
@@ -131,7 +125,6 @@ final class SettingsViewModel {
 
     func updateTag(_ tag: Tag) async -> Bool {
         do {
-            try await authRepository.ensureSignedInAnonymously()
             var t = tag
             t.updatedAt = Date()
             try await tagRepository.update(tag: t)
@@ -145,7 +138,6 @@ final class SettingsViewModel {
 
     func deactivateTag(id: TagID) async -> Bool {
         do {
-            try await authRepository.ensureSignedInAnonymously()
             try await tagRepository.deactivate(tagId: id)
             await MainActor.run { loadTags() }
             return true
@@ -159,7 +151,6 @@ final class SettingsViewModel {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
         do {
-            try await authRepository.ensureSignedInAnonymously()
             let payRate = PayRate(
                 id: UUID().uuidString,
                 title: trimmed,
@@ -179,7 +170,6 @@ final class SettingsViewModel {
 
     func updatePayRate(_ payRate: PayRate) async -> Bool {
         do {
-            try await authRepository.ensureSignedInAnonymously()
             var p = payRate
             p.updatedAt = Date()
             try await payRateRepository.update(payRate: p)
@@ -193,7 +183,6 @@ final class SettingsViewModel {
 
     func deactivatePayRate(id: PayRateID) async -> Bool {
         do {
-            try await authRepository.ensureSignedInAnonymously()
             try await payRateRepository.deactivate(payRateId: id)
             await MainActor.run { loadPayRates() }
             return true
@@ -208,7 +197,6 @@ final class SettingsViewModel {
     func addHourlyRate(payRateId: PayRateID, amount: Decimal) async -> Bool {
         guard !payRateId.isEmpty else { return false }
         do {
-            try await authRepository.ensureSignedInAnonymously()
             let rate = HourlyRate(
                 id: UUID().uuidString,
                 payRateId: payRateId,
@@ -228,7 +216,6 @@ final class SettingsViewModel {
 
     func updateHourlyRate(_ rate: HourlyRate) async -> Bool {
         do {
-            try await authRepository.ensureSignedInAnonymously()
             var r = rate
             r.updatedAt = Date()
             try await hourlyRateRepository.update(hourlyRate: r)
@@ -242,7 +229,6 @@ final class SettingsViewModel {
 
     func deactivateHourlyRate(id: HourlyRateID) async -> Bool {
         do {
-            try await authRepository.ensureSignedInAnonymously()
             try await hourlyRateRepository.deactivate(hourlyRateId: id)
             await MainActor.run { loadHourlyRates() }
             return true
@@ -258,7 +244,6 @@ final class SettingsViewModel {
         let shiftTrimmed = shiftName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !shiftTrimmed.isEmpty, !payRateId.isEmpty else { return false }
         do {
-            try await authRepository.ensureSignedInAnonymously()
             let template = ShiftTemplate(
                 id: UUID().uuidString,
                 payRateId: payRateId,
@@ -284,7 +269,6 @@ final class SettingsViewModel {
 
     func updateShiftTemplate(_ template: ShiftTemplate) async -> Bool {
         do {
-            try await authRepository.ensureSignedInAnonymously()
             var t = template
             t.updatedAt = Date()
             try await shiftTemplateRepository.update(template: t)
@@ -298,7 +282,6 @@ final class SettingsViewModel {
 
     func deactivateShiftTemplate(id: ShiftTemplateID) async -> Bool {
         do {
-            try await authRepository.ensureSignedInAnonymously()
             try await shiftTemplateRepository.deactivate(templateId: id)
             await MainActor.run { loadShiftTemplates() }
             return true
