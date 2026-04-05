@@ -206,22 +206,22 @@ struct MonthlyCalendarView: View {
         } label: {
             VStack(spacing: 4) {
                 ZStack {
-                    if state.isToday {
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 32, height: 32)
-                    } else if state.isSelected {
+                    if state.isSelected {
                         Circle()
                             .fill(Color.accentColor.opacity(0.2))
+                            .frame(width: 32, height: 32)
+                    } else if state.isToday {
+                        Circle()
+                            .fill(Color.red)
                             .frame(width: 32, height: 32)
                     }
                     Text("\(state.dayNumber)")
                         .font(.body.weight(.semibold))
                         .foregroundStyle(
-                            state.isToday
-                                ? Color.white
-                                : (state.isSelected
-                                    ? Color.accentColor
+                            state.isSelected
+                                ? Color.accentColor
+                                : (state.isToday
+                                    ? Color.white
                                     : ((state.isWeekend || state.isHoliday) ? Color.secondary : Color.primary))
                         )
                 }
