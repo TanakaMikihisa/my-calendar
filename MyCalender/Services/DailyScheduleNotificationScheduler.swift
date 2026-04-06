@@ -37,7 +37,7 @@ final class DailyScheduleNotificationScheduler: @unchecked Sendable {
             return
         }
 
-        let authRepo: AuthRepositoryProtocol = if let authRepository {
+        let _: AuthRepositoryProtocol = if let authRepository {
             authRepository
         } else {
             FirebaseAuthRepository()
@@ -104,7 +104,7 @@ final class DailyScheduleNotificationScheduler: @unchecked Sendable {
         eventRepository: EventRepositoryProtocol? = nil,
         workShiftRepository: WorkShiftRepositoryProtocol? = nil
     ) async throws {
-        let authRepo: AuthRepositoryProtocol = if let authRepository {
+        let _: AuthRepositoryProtocol = if let authRepository {
             authRepository
         } else {
             FirebaseAuthRepository()
