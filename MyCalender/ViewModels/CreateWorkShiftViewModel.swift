@@ -256,4 +256,91 @@ final class CreateWorkShiftViewModel {
             return false
         }
     }
+
+    /// 月カレンダー複数選択時など、正規化した各日に同じ内容の勤務を1件ずつ登録する
+    func save(onDates: [Date]) async -> Bool {
+        let normalizedDates = Array(Set(onDates.map { $0.startOfDay() })).sorted()
+        guard !normalizedDates.isEmpty else { return await save() }
+        guard canSave else { return false }
+
+        await MainActor.run { isSaving = true }
+        defer { Task { @MainActor in isSaving = false } }
+
+        do {
+            let now = Date()
+            let calendar = Calendar.current
+
+            switch workShiftCreateMode {
+            case .fromTemplate:
+                guard let template = selectedTemplate else { return false }
+                for dayStart in normalizedDates {
+                    guard let start = Date.applyingTime(template.startTime, to: dayStart, calendar: calendar) else { continue }
+                    var end = Date.applyingTime(template.endTime, to: dayStart, calendar: calendar)
+                    if let e = end, e <= start {
+                        end = calendar.date(byAdding: .day, value: 1, to: e)
+                    }
+                    let endAt = end ?? start.addingTimeInterval(3600 * 8)
+                    let shift = WorkShift(
+                        id: UUID().uuidString,
+                        startAt: start,
+                        endAt: endAt,
+                        breakMinutes: template.breakMinutes,
+                        payType: template.payType,
+                        payRateId: template.payRateId.isEmpty ? nil : template.payRateId,
+                        hourlyRateId: template.hourlyRateId,
+                        fixedPay: template.fixedPay,
+                        companyName: nil,
+                        templateId: template.id,
+                        tagIds: [],
+                        isActive: true,
+                        createdAt: now,
+                        updatedAt: now
+                    )
+                    try await workShiftRepository.upsert(shift: shift)
+                }
+            case .newEntry:
+                let baseStartHour = calendar.component(.hour, from: startAt)
+                let baseStartMinute = calendar.component(.minute, from: startAt)
+                let baseEndHour = calendar.component(.hour, from: endAt)
+                let baseEndMinute = calendar.component(.minute, from: endAt)
+                let wrapsToNextDay = endAt <= startAt
+
+                let trimmedCompany = companyNameText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let companyName: String? = payType == .fixed && !trimmedCompany.isEmpty ? trimmedCompany : nil
+
+                for dayStart in normalizedDates {
+                    guard let start = calendar.date(bySettingHour: baseStartHour, minute: baseStartMinute, second: 0, of: dayStart),
+                          var end = calendar.date(bySettingHour: baseEndHour, minute: baseEndMinute, second: 0, of: dayStart)
+                    else { continue }
+                    if wrapsToNextDay || end <= start {
+                        end = calendar.date(byAdding: .day, value: 1, to: end) ?? end
+                    }
+
+                    let shift = WorkShift(
+                        id: UUID().uuidString,
+                        startAt: start,
+                        endAt: end,
+                        breakMinutes: breakMinutes,
+                        payType: payType,
+                        payRateId: payType == .hourly ? selectedPayRateId : nil,
+                        hourlyRateId: payType == .hourly ? selectedHourlyRateId : nil,
+                        fixedPay: payType == .fixed ? parsedFixedPay : nil,
+                        companyName: companyName,
+                        templateId: nil,
+                        tagIds: [],
+                        isActive: true,
+                        createdAt: now,
+                        updatedAt: now
+                    )
+                    try await workShiftRepository.upsert(shift: shift)
+                }
+            }
+
+            await MainActor.run { errorMessage = nil }
+            return true
+        } catch {
+            await MainActor.run { errorMessage = error.localizedDescription }
+            return false
+        }
+    }
 }

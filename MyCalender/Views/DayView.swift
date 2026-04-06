@@ -457,8 +457,7 @@ struct DayView: View {
             .sheet(isPresented: $isPresentingCreateSheet) {
                 CreateItemSheet(
                     initialDate: viewModel.date,
-                    eventTargetDates: selectedDatesForCreateEvent,
-                    hidesEventDatePicker: selectedDatesForCreateEvent != nil,
+                    bulkTargetDates: selectedDatesForCreateEvent,
                     onSaved: {
                         viewModel.refresh()
                         if displayMode == .monthlyCalendar {

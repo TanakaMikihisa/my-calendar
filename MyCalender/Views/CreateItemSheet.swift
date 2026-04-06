@@ -11,10 +11,8 @@ struct CreateItemSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var initialDate: Date?
-    /// 指定がある場合、イベント保存時にこの日付群へ個別に登録する（イベントのみ）
-    var eventTargetDates: [Date]?
-    /// true の場合、イベント作成フォームの日付選択（date）を隠して時刻のみ表示する
-    var hidesEventDatePicker: Bool = false
+    /// 月カレンダー複数選択時など。保存時にイベント／勤務いずれもこの各日へ個別登録し、日付ピッカーは時刻のみにする
+    var bulkTargetDates: [Date]?
     /// 勤務作成時に初期選択する会社（PayRateID）。指定時は会社・日付が入力済みの状態で開く
     var initialPayRateId: PayRateID?
     var onSaved: () -> Void
@@ -25,6 +23,7 @@ struct CreateItemSheet: View {
     @State private var showErrorAlert = false
     @State private var showSettingsSheet = false
     @State private var showMultiDateSaveConfirmAlert = false
+    @State private var showMultiDateWorkShiftSaveConfirmAlert = false
 
     var body: some View {
         NavigationStack {
@@ -61,7 +60,7 @@ struct CreateItemSheet: View {
                 switch kind {
                 case .event:
                     if let eventViewModel {
-                        CreateEventForm(viewModel: eventViewModel, hidesDatePicker: hidesEventDatePicker)
+                        CreateEventForm(viewModel: eventViewModel, hidesDatePicker: hasBulkTargetDates)
                     }
                 case .workShift:
                     if let workShiftViewModel {
@@ -192,7 +191,10 @@ struct CreateItemSheet: View {
                                 }
                             }
                         }
-                        CreateWorkShiftForm(viewModel: workShiftViewModel)
+                        CreateWorkShiftForm(
+                            viewModel: workShiftViewModel,
+                            hidesWorkShiftDates: hasBulkTargetDates
+                        )
                     }
                 }
             }
@@ -220,8 +222,8 @@ struct CreateItemSheet: View {
                                 } else {
                                     Task {
                                         let success: Bool
-                                        if let eventTargetDates {
-                                            success = await eventViewModel.save(onDates: eventTargetDates)
+                                        if let bulkTargetDates, hasBulkTargetDates {
+                                            success = await eventViewModel.save(onDates: bulkTargetDates)
                                         } else {
                                             success = await eventViewModel.save()
                                         }
@@ -239,13 +241,22 @@ struct CreateItemSheet: View {
                         if kind == .workShift, let workShiftViewModel {
                             Button("保存") {
                                 FeedBack().feedback(.medium)
-                                Task {
-                                    let success = await workShiftViewModel.save()
-                                    if success {
-                                        dismiss()
-                                        onSaved()
-                                    } else {
-                                        showErrorAlert = true
+                                if requiresMultiDateWorkShiftSaveConfirmation {
+                                    showMultiDateWorkShiftSaveConfirmAlert = true
+                                } else {
+                                    Task {
+                                        let success: Bool
+                                        if let bulkTargetDates, hasBulkTargetDates {
+                                            success = await workShiftViewModel.save(onDates: bulkTargetDates)
+                                        } else {
+                                            success = await workShiftViewModel.save()
+                                        }
+                                        if success {
+                                            dismiss()
+                                            onSaved()
+                                        } else {
+                                            showErrorAlert = true
+                                        }
                                     }
                                 }
                             }
@@ -303,8 +314,8 @@ struct CreateItemSheet: View {
                     Task {
                         guard let eventViewModel else { return }
                         let success: Bool
-                        if let eventTargetDates {
-                            success = await eventViewModel.save(onDates: eventTargetDates)
+                        if let bulkTargetDates, hasBulkTargetDates {
+                            success = await eventViewModel.save(onDates: bulkTargetDates)
                         } else {
                             success = await eventViewModel.save()
                         }
@@ -317,9 +328,34 @@ struct CreateItemSheet: View {
                     }
                 }
             }
+            .alert("複数日に同じ予定を登録します", isPresented: $showMultiDateWorkShiftSaveConfirmAlert) {
+                Button("キャンセル", role: .cancel) {
+                    FeedBack().feedback(.light)
+                }
+                Button("登録") {
+                    FeedBack().feedback(.medium)
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    Task {
+                        guard let workShiftViewModel else { return }
+                        let success: Bool
+                        if let bulkTargetDates, hasBulkTargetDates {
+                            success = await workShiftViewModel.save(onDates: bulkTargetDates)
+                        } else {
+                            success = await workShiftViewModel.save()
+                        }
+                        if success {
+                            dismiss()
+                            onSaved()
+                        } else {
+                            showErrorAlert = true
+                        }
+                    }
+                }
+            }
             .overlay(alignment: .bottomLeading) {
                 SavingReturnArrowOverlay(
-                    isSaving: kind == .event && (eventViewModel?.isSaving == true)
+                    isSaving: (kind == .event && eventViewModel?.isSaving == true)
+                        || (kind == .workShift && workShiftViewModel?.isSaving == true)
                 )
                 .padding(.leading, 16)
                 .padding(.bottom, 12)
@@ -327,10 +363,19 @@ struct CreateItemSheet: View {
         }
     }
 
+    private var hasBulkTargetDates: Bool {
+        guard let dates = bulkTargetDates else { return false }
+        return !dates.isEmpty
+    }
+
     private var requiresMultiDateSaveConfirmation: Bool {
         guard kind == .event else { return false }
-        guard let eventTargetDates else { return false }
-        return !eventTargetDates.isEmpty
+        return hasBulkTargetDates
+    }
+
+    private var requiresMultiDateWorkShiftSaveConfirmation: Bool {
+        guard kind == .workShift else { return false }
+        return hasBulkTargetDates
     }
 }
 
@@ -391,6 +436,8 @@ private struct CreateEventForm: View {
 
 private struct CreateWorkShiftForm: View {
     @Bindable var viewModel: CreateWorkShiftViewModel
+    /// 月カレンダー複数選択時は日付欄を隠し、保存時に選択日へ一括登録する
+    var hidesWorkShiftDates: Bool = false
 
     var body: some View {
         switch viewModel.workShiftCreateMode {
@@ -471,13 +518,23 @@ private struct CreateWorkShiftForm: View {
                     }
                 }
             }
-            Section("日付") {
-                DatePicker("勤務日", selection: $viewModel.workShiftDate, displayedComponents: .date)
+            if !hidesWorkShiftDates {
+                Section("日付") {
+                    DatePicker("勤務日", selection: $viewModel.workShiftDate, displayedComponents: .date)
+                }
             }
         case .newEntry:
             Section("勤務時間") {
-                DatePicker("開始", selection: $viewModel.startAt, displayedComponents: [.date, .hourAndMinute])
-                DatePicker("終了", selection: $viewModel.endAt, displayedComponents: [.date, .hourAndMinute])
+                DatePicker(
+                    "開始",
+                    selection: $viewModel.startAt,
+                    displayedComponents: hidesWorkShiftDates ? [.hourAndMinute] : [.date, .hourAndMinute]
+                )
+                DatePicker(
+                    "終了",
+                    selection: $viewModel.endAt,
+                    displayedComponents: hidesWorkShiftDates ? [.hourAndMinute] : [.date, .hourAndMinute]
+                )
                 TextField("休憩時間（分）", text: $viewModel.breakMinutesText)
                     .keyboardType(.numberPad)
             }
