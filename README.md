@@ -123,3 +123,22 @@ MyCalender は、個人的な予定管理のために作っているカレンダ
 }
 ```
 
+- `rapidEvents/{rapidEventId}`（指定日時の単発通知）:
+
+```json
+{
+  "notifyAt": "2026-04-10T09:30:00+09:00",
+  "title": "ゴミ出し",
+  "body": "燃えるゴミの日",
+  "tagId": "tag_home",
+  "isNotified": false,
+  "isActive": true,
+  "createdAt": "2026-04-09T12:00:00Z",
+  "updatedAt": "2026-04-09T12:00:00Z"
+}
+```
+
+補足:
+- `isNotified` は通知済み判定フラグです。未通知一覧では `isNotified == false` かつ未来日時のデータを表示します。
+- アプリ起動時に `rapidEvents` を読み込み、未通知データのローカル通知を再スケジュールします。
+

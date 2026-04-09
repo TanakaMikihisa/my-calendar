@@ -6,4 +6,4 @@ typealias ShiftTemplateID = String
 typealias PayRateID = String
 typealias HourlyRateID = String
 typealias TagID = String
-
+typealias RapidEventID = String
