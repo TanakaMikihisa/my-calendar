@@ -6,6 +6,7 @@ final class CreateEventViewModel {
     private let authRepository: AuthRepositoryProtocol
     private let eventRepository: EventRepositoryProtocol
     private let tagRepository: TagRepositoryProtocol
+    private let eventTemplateRepository: EventTemplateRepositoryProtocol
 
     var title: String = ""
     var startAt: Date
@@ -13,6 +14,8 @@ final class CreateEventViewModel {
     var note: String = ""
     var tags: [Tag] = []
     var selectedTagIds: Set<TagID> = []
+    var eventTemplates: [EventTemplate] = []
+    var selectedEventTemplateId: EventTemplateID = ""
 
     var isSaving: Bool = false
     var errorMessage: String?
@@ -21,11 +24,13 @@ final class CreateEventViewModel {
         initialDate: Date,
         authRepository: AuthRepositoryProtocol = FirebaseAuthRepository(),
         eventRepository: EventRepositoryProtocol = FirestoreEventRepository(),
-        tagRepository: TagRepositoryProtocol = FirestoreTagRepository()
+        tagRepository: TagRepositoryProtocol = FirestoreTagRepository(),
+        eventTemplateRepository: EventTemplateRepositoryProtocol = FirestoreEventTemplateRepository()
     ) {
         self.authRepository = authRepository
         self.eventRepository = eventRepository
         self.tagRepository = tagRepository
+        self.eventTemplateRepository = eventTemplateRepository
         let calendar = Calendar.current
         let start = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: initialDate) ?? initialDate
         let end = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: initialDate) ?? initialDate.addingTimeInterval(3600)
@@ -43,12 +48,27 @@ final class CreateEventViewModel {
         }
     }
 
+    func loadEventTemplates() {
+        Task { @MainActor in
+            do {
+                eventTemplates = try await eventTemplateRepository.listActive()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
     func toggleTag(_ id: TagID) {
         if selectedTagIds.contains(id) {
             selectedTagIds.remove(id)
         } else {
-            selectedTagIds.insert(id)
+            selectedTagIds = [id]
         }
+    }
+
+    private var singleSelectedTagIds: [TagID] {
+        guard let first = selectedTagIds.first else { return [] }
+        return [first]
     }
 
     var canSave: Bool {
@@ -92,7 +112,7 @@ final class CreateEventViewModel {
                 startAt: startAt,
                 endAt: endAt,
                 note: note.isEmpty ? nil : note,
-                tagIds: Array(selectedTagIds),
+                tagIds: singleSelectedTagIds,
                 isActive: true,
                 createdAt: now,
                 updatedAt: now
@@ -104,6 +124,63 @@ final class CreateEventViewModel {
             await MainActor.run { errorMessage = error.localizedDescription }
             return false
         }
+    }
+
+    func saveAsTemplate() async -> Bool {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty, startAt < endAt else { return false }
+        do {
+            let calendar = Calendar.current
+            let template = EventTemplate(
+                id: UUID().uuidString,
+                title: trimmedTitle,
+                note: note.isEmpty ? nil : note,
+                startTime: startAt.toTimeString(calendar: calendar),
+                endTime: endAt.toTimeString(calendar: calendar),
+                tagIds: singleSelectedTagIds,
+                isActive: true,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            try await eventTemplateRepository.add(template: template)
+            await MainActor.run {
+                selectedEventTemplateId = template.id
+                loadEventTemplates()
+            }
+            return true
+        } catch {
+            await MainActor.run { errorMessage = error.localizedDescription }
+            return false
+        }
+    }
+
+    func applyEventTemplate(id: EventTemplateID) {
+        guard let template = eventTemplates.first(where: { $0.id == id }) else { return }
+        selectedEventTemplateId = id
+        title = template.title
+        note = template.note ?? ""
+        if let first = template.tagIds.first {
+            selectedTagIds = [first]
+        } else {
+            selectedTagIds = []
+        }
+
+        let calendar = Calendar.current
+        let baseDate = calendar.startOfDay(for: startAt)
+        let parsedStart = Date.fromTimeString(template.startTime)
+        let parsedEnd = Date.fromTimeString(template.endTime)
+        let startHour = parsedStart.map { calendar.component(.hour, from: $0) } ?? 9
+        let startMinute = parsedStart.map { calendar.component(.minute, from: $0) } ?? 0
+        let endHour = parsedEnd.map { calendar.component(.hour, from: $0) } ?? 10
+        let endMinute = parsedEnd.map { calendar.component(.minute, from: $0) } ?? 0
+
+        guard let newStart = calendar.date(bySettingHour: startHour, minute: startMinute, second: 0, of: baseDate),
+              var newEnd = calendar.date(bySettingHour: endHour, minute: endMinute, second: 0, of: baseDate) else { return }
+        if newEnd <= newStart {
+            newEnd = calendar.date(byAdding: .day, value: 1, to: newEnd) ?? newEnd
+        }
+        startAt = newStart
+        endAt = newEnd
     }
 
     func save(onDates: [Date]) async -> Bool {
@@ -140,7 +217,7 @@ final class CreateEventViewModel {
                     startAt: start,
                     endAt: end,
                     note: note.isEmpty ? nil : note,
-                    tagIds: Array(selectedTagIds),
+                    tagIds: singleSelectedTagIds,
                     isActive: true,
                     createdAt: now,
                     updatedAt: now

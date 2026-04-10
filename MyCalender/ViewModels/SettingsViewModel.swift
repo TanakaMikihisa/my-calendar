@@ -8,11 +8,13 @@ final class SettingsViewModel {
     private let payRateRepository: PayRateRepositoryProtocol
     private let hourlyRateRepository: HourlyRateRepositoryProtocol
     private let shiftTemplateRepository: ShiftTemplateRepositoryProtocol
+    private let eventTemplateRepository: EventTemplateRepositoryProtocol
 
     var tags: [Tag] = []
     var payRates: [PayRate] = []
     var hourlyRates: [HourlyRate] = []
     var shiftTemplates: [ShiftTemplate] = []
+    var eventTemplates: [EventTemplate] = []
     var isLoading = false
     var errorMessage: String?
 
@@ -21,13 +23,15 @@ final class SettingsViewModel {
         tagRepository: TagRepositoryProtocol = FirestoreTagRepository(),
         payRateRepository: PayRateRepositoryProtocol = FirestorePayRateRepository(),
         hourlyRateRepository: HourlyRateRepositoryProtocol = FirestoreHourlyRateRepository(),
-        shiftTemplateRepository: ShiftTemplateRepositoryProtocol = FirestoreShiftTemplateRepository()
+        shiftTemplateRepository: ShiftTemplateRepositoryProtocol = FirestoreShiftTemplateRepository(),
+        eventTemplateRepository: EventTemplateRepositoryProtocol = FirestoreEventTemplateRepository()
     ) {
         self.authRepository = authRepository
         self.tagRepository = tagRepository
         self.payRateRepository = payRateRepository
         self.hourlyRateRepository = hourlyRateRepository
         self.shiftTemplateRepository = shiftTemplateRepository
+        self.eventTemplateRepository = eventTemplateRepository
     }
 
     func loadTags() {
@@ -91,10 +95,12 @@ final class SettingsViewModel {
                 async let payRatesTask = payRateRepository.listActive()
                 async let hourlyRatesTask = hourlyRateRepository.listActive()
                 async let templatesTask = shiftTemplateRepository.listActive()
+                async let eventTemplatesTask = eventTemplateRepository.listActive()
                 tags = try await tagsTask
                 payRates = try await payRatesTask
                 hourlyRates = try await hourlyRatesTask
                 shiftTemplates = try await templatesTask
+                eventTemplates = try await eventTemplatesTask
                 errorMessage = nil
             } catch {
                 errorMessage = error.localizedDescription
@@ -284,6 +290,69 @@ final class SettingsViewModel {
         do {
             try await shiftTemplateRepository.deactivate(templateId: id)
             await MainActor.run { loadShiftTemplates() }
+            return true
+        } catch {
+            await MainActor.run { errorMessage = error.localizedDescription }
+            return false
+        }
+    }
+
+    // MARK: - EventTemplate
+
+    func loadEventTemplates() {
+        Task { @MainActor in
+            isLoading = true
+            defer { isLoading = false }
+            do {
+                eventTemplates = try await eventTemplateRepository.listActive()
+                errorMessage = nil
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func addEventTemplate(title: String, note: String?, startTime: String, endTime: String, tagIds: [TagID]) async -> Bool {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else { return false }
+        do {
+            let template = EventTemplate(
+                id: UUID().uuidString,
+                title: trimmedTitle,
+                note: note?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true ? nil : note,
+                startTime: startTime,
+                endTime: endTime,
+                tagIds: tagIds,
+                isActive: true,
+                createdAt: Date(),
+                updatedAt: Date()
+            )
+            try await eventTemplateRepository.add(template: template)
+            await MainActor.run { loadEventTemplates() }
+            return true
+        } catch {
+            await MainActor.run { errorMessage = error.localizedDescription }
+            return false
+        }
+    }
+
+    func updateEventTemplate(_ template: EventTemplate) async -> Bool {
+        do {
+            var t = template
+            t.updatedAt = Date()
+            try await eventTemplateRepository.update(template: t)
+            await MainActor.run { loadEventTemplates() }
+            return true
+        } catch {
+            await MainActor.run { errorMessage = error.localizedDescription }
+            return false
+        }
+    }
+
+    func deactivateEventTemplate(id: EventTemplateID) async -> Bool {
+        do {
+            try await eventTemplateRepository.deactivate(templateId: id)
+            await MainActor.run { loadEventTemplates() }
             return true
         } catch {
             await MainActor.run { errorMessage = error.localizedDescription }

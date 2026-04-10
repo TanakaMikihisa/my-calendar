@@ -275,6 +275,7 @@ struct CreateItemSheet: View {
                 if eventViewModel == nil {
                     eventViewModel = CreateEventViewModel(initialDate: date)
                     eventViewModel?.loadTags()
+                    eventViewModel?.loadEventTemplates()
                 }
                 if workShiftViewModel == nil {
                     workShiftViewModel = CreateWorkShiftViewModel(initialDate: date, initialPayRateId: initialPayRateId)
@@ -289,6 +290,7 @@ struct CreateItemSheet: View {
             .onChange(of: showSettingsSheet) {
                 if !showSettingsSheet {
                     eventViewModel?.loadTags()
+                    eventViewModel?.loadEventTemplates()
                     workShiftViewModel?.loadPayRates()
                     workShiftViewModel?.loadHourlyRates()
                     workShiftViewModel?.loadShiftTemplates()
@@ -426,6 +428,34 @@ private struct CreateEventForm: View {
                                 .foregroundStyle(.primary)
                             Spacer()
                             if viewModel.selectedTagIds.contains(tag.id) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.tint)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Section("テンプレートから登録") {
+            if viewModel.eventTemplates.isEmpty {
+                Text("テンプレートがありません。設定から追加できます。")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(viewModel.eventTemplates) { template in
+                    Button {
+                        FeedBack().feedback(.light)
+                        viewModel.applyEventTemplate(id: template.id)
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(template.title)
+                                    .foregroundStyle(.primary)
+                                Text("\(template.startTime)〜\(template.endTime)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if viewModel.selectedEventTemplateId == template.id {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(.tint)
                             }

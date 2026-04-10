@@ -50,6 +50,12 @@ final class CreateReminderNotificationViewModel {
         return tags.first(where: { $0.id == selectedTagId })?.name
     }
 
+    /// rapidEventはタグ1件のみ許可。未選択または一覧外IDはnilとして扱う。
+    private var normalizedSelectedTagId: TagID? {
+        guard let selectedTagId else { return nil }
+        return tags.contains(where: { $0.id == selectedTagId }) ? selectedTagId : nil
+    }
+
     func loadTags() {
         Task {
             do {
@@ -74,7 +80,7 @@ final class CreateReminderNotificationViewModel {
                 notifyAt: notifyAt,
                 title: trimmedTitle,
                 body: trimmedBody,
-                tagId: selectedTagId,
+                tagId: normalizedSelectedTagId,
                 isNotified: false,
                 isActive: true,
                 createdAt: now,
@@ -90,7 +96,7 @@ final class CreateReminderNotificationViewModel {
                     startAt: notifyAt,
                     endAt: notifyAt.addingTimeInterval(3600),
                     note: trimmedBody,
-                    tagIds: selectedTagId.map { [$0] } ?? [],
+                    tagIds: normalizedSelectedTagId.map { [$0] } ?? [],
                     isActive: true,
                     createdAt: now,
                     updatedAt: now
@@ -129,13 +135,14 @@ final class CreateReminderNotificationViewModel {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty, notifyAt > Date() else { return false }
+        let normalizedTagId = tags.contains(where: { $0.id == selectedTagId }) ? selectedTagId : nil
         do {
             let updated = RapidEvent(
                 id: rapidEvent.id,
                 notifyAt: notifyAt,
                 title: trimmedTitle,
                 body: trimmedBody,
-                tagId: selectedTagId,
+                tagId: normalizedTagId,
                 isNotified: false,
                 isActive: rapidEvent.isActive,
                 createdAt: rapidEvent.createdAt,

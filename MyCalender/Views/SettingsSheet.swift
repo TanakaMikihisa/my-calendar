@@ -8,6 +8,8 @@ struct SettingsSheet: View {
     @State private var editingTag: Tag?
     @State private var showPayRateForm = false
     @State private var selectedCompany: PayRate?
+    @State private var showEventTemplateForm = false
+    @State private var editingEventTemplate: EventTemplate?
 
     var body: some View {
         NavigationStack {
@@ -81,6 +83,37 @@ struct SettingsSheet: View {
                         showPayRateForm = true
                     }
                 }
+                Section("予定テンプレート") {
+                    if viewModel.isLoading, viewModel.eventTemplates.isEmpty {
+                        SavingReturnArrowOverlay(isSaving: true, clipsScrimToParentBounds: true)
+                            .frame(height: 140)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    } else if viewModel.eventTemplates.isEmpty {
+                        Text("予定テンプレートがありません")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(viewModel.eventTemplates) { template in
+                            Button {
+                                FeedBack().feedback(.medium)
+                                editingEventTemplate = template
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(template.title)
+                                        .foregroundStyle(.primary)
+                                    Text("\(template.startTime)〜\(template.endTime)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .onDelete(perform: deleteEventTemplates)
+                    }
+                    Button("予定テンプレートを追加") {
+                        FeedBack().feedback(.medium)
+                        editingEventTemplate = nil
+                        showEventTemplateForm = true
+                    }
+                }
             }
             .navigationTitle("設定")
             .toolbar {
@@ -114,6 +147,22 @@ struct SettingsSheet: View {
                     payRate: nil,
                     onSave: { viewModel.loadPayRates(); showPayRateForm = false },
                     onDismiss: { showPayRateForm = false }
+                )
+            }
+            .sheet(isPresented: $showEventTemplateForm) {
+                EventTemplateFormSheet(
+                    template: nil,
+                    tags: viewModel.tags,
+                    onSave: { viewModel.loadEventTemplates(); showEventTemplateForm = false },
+                    onDismiss: { showEventTemplateForm = false }
+                )
+            }
+            .sheet(item: $editingEventTemplate) { template in
+                EventTemplateFormSheet(
+                    template: template,
+                    tags: viewModel.tags,
+                    onSave: { viewModel.loadEventTemplates(); editingEventTemplate = nil },
+                    onDismiss: { editingEventTemplate = nil }
                 )
             }
             .sheet(item: $selectedCompany) { company in
@@ -158,6 +207,16 @@ struct SettingsSheet: View {
                 _ = await viewModel.deactivatePayRate(id: id)
             }
             viewModel.loadPayRates()
+        }
+    }
+
+    private func deleteEventTemplates(at offsets: IndexSet) {
+        Task { @MainActor in
+            for index in offsets {
+                let id = viewModel.eventTemplates[index].id
+                _ = await viewModel.deactivateEventTemplate(id: id)
+            }
+            viewModel.loadEventTemplates()
         }
     }
 }
@@ -1032,6 +1091,184 @@ struct ShiftTemplateFormSheet: View {
         guard let t = template else { return }
         let vm = SettingsViewModel()
         let ok = await vm.deactivateShiftTemplate(id: t.id)
+        if ok { onSave(); dismiss() }
+        else { errorMessage = vm.errorMessage }
+    }
+}
+
+struct EventTemplateFormSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let template: EventTemplate?
+    let tags: [Tag]
+    let onSave: () -> Void
+    let onDismiss: () -> Void
+
+    @State private var title: String = ""
+    @State private var note: String = ""
+    @State private var startTimeDate: Date = .init()
+    @State private var endTimeDate: Date = .init()
+    @State private var selectedTagIds: Set<TagID> = []
+    @State private var isSaving = false
+    @State private var showDeleteConfirm = false
+    @State private var errorMessage: String?
+
+    private var calendar: Calendar { .current }
+    private var singleSelectedTagIds: [TagID] {
+        guard let first = selectedTagIds.first else { return [] }
+        return [first]
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("予定") {
+                    TextField("タイトル", text: $title)
+                    DatePicker("開始", selection: $startTimeDate, displayedComponents: .hourAndMinute)
+                    DatePicker("終了", selection: $endTimeDate, displayedComponents: .hourAndMinute)
+                    TextField("内容", text: $note, axis: .vertical)
+                        .lineLimit(2...5)
+                }
+                Section("タグ") {
+                    if tags.isEmpty {
+                        Text("タグがありません。先にタグを追加してください。")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(tags) { tag in
+                            Button {
+                                FeedBack().feedback(.light)
+                                if selectedTagIds.contains(tag.id) {
+                                    selectedTagIds.remove(tag.id)
+                                } else {
+                                    selectedTagIds = [tag.id]
+                                }
+                            } label: {
+                                HStack {
+                                    Circle()
+                                        .fill(Color.from(hex: tag.colorHex))
+                                        .frame(width: 20, height: 20)
+                                    Text(tag.name)
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    if selectedTagIds.contains(tag.id) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(.tint)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if template != nil {
+                    Section {
+                        Button(role: .destructive) {
+                            FeedBack().feedback(.heavy)
+                            showDeleteConfirm = true
+                        } label: {
+                            Text("このテンプレートを削除")
+                        }
+                    }
+                }
+            }
+            .navigationTitle(template == nil ? "予定テンプレートを追加" : "予定テンプレートを編集")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") {
+                        FeedBack().feedback(.light)
+                        onDismiss()
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(template == nil ? "追加" : "更新") {
+                        FeedBack().feedback(.medium)
+                        Task { await save() }
+                    }
+                    .disabled(!canSave || isSaving)
+                }
+            }
+            .onAppear {
+                if let template {
+                    title = template.title
+                    note = template.note ?? ""
+                    if let first = template.tagIds.first {
+                        selectedTagIds = [first]
+                    } else {
+                        selectedTagIds = []
+                    }
+                    startTimeDate = Date.fromTimeString(template.startTime) ?? calendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+                    endTimeDate = Date.fromTimeString(template.endTime) ?? calendar.date(bySettingHour: 10, minute: 0, second: 0, of: Date()) ?? Date()
+                } else {
+                    title = ""
+                    note = ""
+                    selectedTagIds = []
+                    startTimeDate = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+                    endTimeDate = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: Date()) ?? Date()
+                }
+            }
+            .alert("テンプレートを削除", isPresented: $showDeleteConfirm) {
+                Button("キャンセル", role: .cancel) { FeedBack().feedback(.light) }
+                Button("削除", role: .destructive) {
+                    FeedBack().feedback(.heavy)
+                    Task { await deleteTemplate() }
+                }
+            } message: {
+                Text("このテンプレートを削除しますか？")
+            }
+            .alert("エラー", isPresented: .constant(errorMessage != nil)) {
+                Button("OK") {
+                    FeedBack().feedback(.light)
+                    errorMessage = nil
+                }
+            } message: {
+                Text(errorMessage ?? "")
+            }
+            .overlay(alignment: .bottomLeading) {
+                SavingReturnArrowOverlay(isSaving: isSaving)
+                    .padding(.leading, 16)
+                    .padding(.bottom, 12)
+            }
+        }
+    }
+
+    private var canSave: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func save() async {
+        let vm = SettingsViewModel()
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let startTime = startTimeDate.toTimeString(calendar: calendar)
+        let endTime = endTimeDate.toTimeString(calendar: calendar)
+        isSaving = true
+        defer { isSaving = false }
+        if let template {
+            var updated = template
+            updated.title = trimmedTitle
+            updated.note = note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note
+            updated.startTime = startTime
+            updated.endTime = endTime
+            updated.tagIds = singleSelectedTagIds
+            updated.updatedAt = Date()
+            let ok = await vm.updateEventTemplate(updated)
+            if ok { onSave(); dismiss() }
+            else { errorMessage = vm.errorMessage }
+        } else {
+            let ok = await vm.addEventTemplate(
+                title: trimmedTitle,
+                note: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note,
+                startTime: startTime,
+                endTime: endTime,
+                tagIds: singleSelectedTagIds
+            )
+            if ok { onSave(); dismiss() }
+            else { errorMessage = vm.errorMessage }
+        }
+    }
+
+    private func deleteTemplate() async {
+        guard let template else { return }
+        let vm = SettingsViewModel()
+        let ok = await vm.deactivateEventTemplate(id: template.id)
         if ok { onSave(); dismiss() }
         else { errorMessage = vm.errorMessage }
     }

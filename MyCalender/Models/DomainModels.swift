@@ -23,6 +23,20 @@ struct Event: Identifiable, Sendable, Hashable {
     var updatedAt: Date
 }
 
+struct EventTemplate: Identifiable, Sendable, Hashable {
+    var id: EventTemplateID
+    var title: String
+    var note: String?
+    /// "HH:mm"
+    var startTime: String
+    /// "HH:mm"
+    var endTime: String
+    var tagIds: [TagID]
+    var isActive: Bool
+    var createdAt: Date
+    var updatedAt: Date
+}
+
 struct WorkShift: Identifiable, Sendable, Hashable {
     var id: WorkShiftID
     var startAt: Date
