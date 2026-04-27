@@ -99,7 +99,7 @@ struct CreateReminderNotificationSheet: View {
                         } label: {
                             Image(systemName: "clock")
                         }
-                        .accessibilityLabel("未通知の一覧")
+                        .accessibilityLabel("通知一覧")
 
                         Button("保存") {
                             FeedBack().feedback(.medium)
@@ -120,7 +120,7 @@ struct CreateReminderNotificationSheet: View {
                 viewModel.loadTags()
                 Task {
                     do {
-                        try await viewModel.loadPendingRapidEvents()
+                        try await viewModel.loadRapidEventLists()
                     } catch {
                         viewModel.errorMessage = error.localizedDescription
                         showErrorAlert = true
@@ -130,8 +130,7 @@ struct CreateReminderNotificationSheet: View {
             .sheet(isPresented: $isPresentingPendingRemindersSheet) {
                 PendingRapidEventsSheet(
                     viewModel: viewModel,
-                    rapidEvents: viewModel.pendingRapidEvents,
-                    isLoading: viewModel.isLoadingPendingRapidEvents,
+                    isLoading: viewModel.isLoadingRapidEventLists,
                     onError: { showErrorAlert = true }
                 )
             }
@@ -148,59 +147,71 @@ struct CreateReminderNotificationSheet: View {
     }
 }
 
+private enum RapidEventsListTab: String, CaseIterable, Identifiable, Hashable {
+    case pending
+    case past
+
+    var id: String { rawValue }
+
+    /// セグメント用（長い文は2行化され幅を食うため短く。ナビ上は `accessibility` で補足）
+    var segmentTitle: String {
+        switch self {
+        case .pending: "これから"
+        case .past: "これまで"
+        }
+    }
+}
+
 private struct PendingRapidEventsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @Bindable var viewModel: CreateReminderNotificationViewModel
-    let rapidEvents: [RapidEvent]
     let isLoading: Bool
     let onError: () -> Void
 
+    @State private var listTab: RapidEventsListTab = .pending
     @State private var selectedRapidEvent: RapidEvent?
 
     var body: some View {
         NavigationStack {
-            Group {
-                if isLoading {
-                    ProgressView()
-                } else if rapidEvents.isEmpty {
-                    ContentUnavailableView("未通知の通知はありません", systemImage: "clock")
-                } else {
-                    List(rapidEvents) { item in
-                        Button {
-                            FeedBack().feedback(.light)
-                            selectedRapidEvent = item
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(item.title)
-                                    .font(.headline)
-                                    .foregroundStyle(.primary)
-                                Text(formatted(date: item.notifyAt))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) {
-                                Task {
-                                    await viewModel.deletePendingRapidEvent(item)
-                                }
-                            } label: {
-                                Image(systemName: "trash")
-                            }
+            VStack(spacing: 0) {
+                Picker("表示", selection: $listTab) {
+                    ForEach(RapidEventsListTab.allCases) { tab in
+                        Text(tab.segmentTitle)
+                            .tag(tab)
+                    }
+                }
+                .accessibilityValue(listTab == .pending ? "これからの通知一覧を表示中" : "これまでの通知一覧を表示中")
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
+                Group {
+                    if isLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    } else {
+                        switch listTab {
+                        case .pending: pendingList
+                        case .past: pastList
                         }
                     }
-                    .listStyle(.plain)
                 }
             }
-            .navigationTitle("未通知の通知一覧")
-            .sheet(item: $selectedRapidEvent) { item in
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .navigationTitle("通知の一覧")
+            .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: listTab) { _, _ in
+                selectedRapidEvent = nil
+            }
+            /// 親シート上にさらに `.sheet` を重ねるとタップで編集が開かないことがあるため、同一 `NavigationStack` 内でプッシュする。
+            .navigationDestination(item: $selectedRapidEvent) { item in
                 EditRapidEventSheet(
                     rapidEvent: item,
                     tags: viewModel.tags,
                     onSave: { notifyAt, title, body, selectedTagId in
-                        let success = await viewModel.updatePendingRapidEvent(
+                        let success = await viewModel.saveRapidEventEdit(
                             item,
                             notifyAt: notifyAt,
                             title: title,
@@ -221,6 +232,57 @@ private struct PendingRapidEventsSheet: View {
                         dismiss()
                     }
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var pendingList: some View {
+        if viewModel.pendingRapidEvents.isEmpty {
+            ContentUnavailableView("未通知の通知はありません", systemImage: "clock")
+        } else {
+            List(viewModel.pendingRapidEvents) { item in
+                rapidEventRow(item: item)
+            }
+            .listStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var pastList: some View {
+        if viewModel.pastRapidEvents.isEmpty {
+            ContentUnavailableView("通知済みの履歴はありません", systemImage: "checkmark.circle")
+        } else {
+            List(viewModel.pastRapidEvents) { item in
+                rapidEventRow(item: item)
+            }
+            .listStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func rapidEventRow(item: RapidEvent) -> some View {
+        Button {
+            FeedBack().feedback(.light)
+            selectedRapidEvent = item
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text(formatted(date: item.notifyAt))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                Task {
+                    await viewModel.deletePendingRapidEvent(item)
+                }
+            } label: {
+                Image(systemName: "trash")
             }
         }
     }
@@ -264,72 +326,69 @@ private struct EditRapidEventSheet: View {
 
     private var canSave: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !messageBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && notifyAt > Date()
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    DatePicker("通知する日時", selection: $notifyAt, displayedComponents: [.date, .hourAndMinute])
-                    TextField("タイトル", text: $title)
-                    TextField("内容", text: $messageBody, axis: .vertical)
-                        .lineLimit(2...5)
-                }
+        Form {
+            Section {
+                DatePicker("通知する日時", selection: $notifyAt, displayedComponents: [.date, .hourAndMinute])
+                TextField("タイトル", text: $title)
+                TextField("内容", text: $messageBody, axis: .vertical)
+                    .lineLimit(2...5)
+            }
 
-                Section("タグ") {
-                    if tags.isEmpty {
-                        Text("タグがありません。未選択のままでも保存できます。")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(tags) { tag in
-                            Button {
-                                FeedBack().feedback(.light)
-                                selectedTagId = (selectedTagId == tag.id) ? nil : tag.id
-                            } label: {
-                                HStack {
-                                    Circle()
-                                        .fill(Color.from(hex: tag.colorHex))
-                                        .frame(width: 16, height: 16)
-                                    Text(tag.name)
-                                        .foregroundStyle(.primary)
-                                    Spacer()
-                                    if selectedTagId == tag.id {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(.tint)
-                                    }
+            Section("タグ") {
+                if tags.isEmpty {
+                    Text("タグがありません。未選択のままでも保存できます。")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(tags) { tag in
+                        Button {
+                            FeedBack().feedback(.light)
+                            selectedTagId = (selectedTagId == tag.id) ? nil : tag.id
+                        } label: {
+                            HStack {
+                                Circle()
+                                    .fill(Color.from(hex: tag.colorHex))
+                                    .frame(width: 16, height: 16)
+                                Text(tag.name)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if selectedTagId == tag.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(.tint)
                                 }
                             }
-                            .buttonStyle(.plain)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }
-            .navigationTitle("通知を編集")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("閉じる") { dismiss() }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("保存") {
-                        Task {
-                            isSaving = true
-                            let success = await onSave(notifyAt, title, messageBody, selectedTagId)
-                            isSaving = false
-                            if success {
-                                dismiss()
-                            } else {
-                                showErrorAlert = true
-                            }
+        }
+        .navigationTitle("通知を編集")
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("閉じる") { dismiss() }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("保存") {
+                    Task {
+                        isSaving = true
+                        let success = await onSave(notifyAt, title, messageBody, selectedTagId)
+                        isSaving = false
+                        if success {
+                            dismiss()
+                        } else {
+                            showErrorAlert = true
                         }
                     }
-                    .disabled(!canSave || isSaving)
                 }
+                .disabled(!canSave || isSaving)
             }
-            .alert("保存に失敗しました", isPresented: $showErrorAlert) {
-                Button("OK", role: .cancel) {}
-            }
+        }
+        .alert("保存に失敗しました", isPresented: $showErrorAlert) {
+            Button("OK", role: .cancel) {}
         }
     }
 }

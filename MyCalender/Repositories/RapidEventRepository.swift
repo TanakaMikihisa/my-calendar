@@ -5,6 +5,8 @@ protocol RapidEventRepositoryProtocol: Sendable {
     func upsert(rapidEvent: RapidEvent) async throws
     func deactivate(rapidEventId: RapidEventID) async throws
     func listPending() async throws -> [RapidEvent]
+    /// 通知済み（`isNotified == true`）で、まだ無効化されていない単発通知。新しい順。
+    func listNotified() async throws -> [RapidEvent]
 }
 
 actor FirestoreRapidEventRepository: RapidEventRepositoryProtocol {
@@ -49,6 +51,18 @@ actor FirestoreRapidEventRepository: RapidEventRepositoryProtocol {
             }
         }
         return all.filter { $0.notifyAt > now }
+    }
+
+    /// `isActive` + `isNotified` + `notifyAt` の複合インデックスが必要な場合、初回クエリ時に Firebase コンソールのリンクから作成してください。
+    func listNotified() async throws -> [RapidEvent] {
+        let snapshot = try await db
+            .collection(FirestorePaths.rapidEvents)
+            .whereField("isActive", isEqualTo: true)
+            .whereField("isNotified", isEqualTo: true)
+            .order(by: "notifyAt", descending: true)
+            .getDocuments()
+
+        return try snapshot.documents.compactMap { try mapRapidEvent(doc: $0) }
     }
 
     private func mapRapidEvent(doc: QueryDocumentSnapshot) throws -> RapidEvent {

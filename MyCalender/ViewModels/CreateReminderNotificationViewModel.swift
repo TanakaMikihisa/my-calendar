@@ -16,7 +16,9 @@ final class CreateReminderNotificationViewModel {
     var selectedTagId: TagID?
     var shouldAlsoAddToSchedule = false
     var pendingRapidEvents: [RapidEvent] = []
-    var isLoadingPendingRapidEvents = false
+    /// 通知時刻を過ぎ通知済みとなった単発通知（新しい順）
+    var pastRapidEvents: [RapidEvent] = []
+    var isLoadingRapidEventLists = false
 
     var isSaving = false
     var errorMessage: String?
@@ -110,7 +112,7 @@ final class CreateReminderNotificationViewModel {
                 body: trimmedBody,
                 identifier: CustomReminderNotificationScheduler.notificationIdentifier(for: rapidEvent.id)
             )
-            try await loadPendingRapidEvents()
+            try await loadRapidEventLists()
             errorMessage = nil
             return true
         } catch {
@@ -119,13 +121,15 @@ final class CreateReminderNotificationViewModel {
         }
     }
 
-    func loadPendingRapidEvents() async throws {
-        isLoadingPendingRapidEvents = true
-        defer { isLoadingPendingRapidEvents = false }
+    func loadRapidEventLists() async throws {
+        isLoadingRapidEventLists = true
+        defer { isLoadingRapidEventLists = false }
         pendingRapidEvents = try await rapidEventRepository.listPending()
+        pastRapidEvents = try await rapidEventRepository.listNotified()
     }
 
-    func updatePendingRapidEvent(
+    /// 未通知・通知済みどちらから開いても保存。未来日時なら再スケジュール、過去ならメタデータのみ。
+    func saveRapidEventEdit(
         _ rapidEvent: RapidEvent,
         notifyAt: Date,
         title: String,
@@ -134,28 +138,49 @@ final class CreateReminderNotificationViewModel {
     ) async -> Bool {
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedTitle.isEmpty, notifyAt > Date() else { return false }
+        guard !trimmedTitle.isEmpty else { return false }
         let normalizedTagId = tags.contains(where: { $0.id == selectedTagId }) ? selectedTagId : nil
+        let now = Date()
+        let identifier = CustomReminderNotificationScheduler.notificationIdentifier(for: rapidEvent.id)
+
         do {
-            let updated = RapidEvent(
-                id: rapidEvent.id,
-                notifyAt: notifyAt,
-                title: trimmedTitle,
-                body: trimmedBody,
-                tagId: normalizedTagId,
-                isNotified: false,
-                isActive: rapidEvent.isActive,
-                createdAt: rapidEvent.createdAt,
-                updatedAt: Date()
-            )
-            try await rapidEventRepository.upsert(rapidEvent: updated)
-            try await scheduler.schedule(
-                at: notifyAt,
-                title: trimmedTitle,
-                body: trimmedBody,
-                identifier: CustomReminderNotificationScheduler.notificationIdentifier(for: rapidEvent.id)
-            )
-            try await loadPendingRapidEvents()
+            if notifyAt > now {
+                let updated = RapidEvent(
+                    id: rapidEvent.id,
+                    notifyAt: notifyAt,
+                    title: trimmedTitle,
+                    body: trimmedBody,
+                    tagId: normalizedTagId,
+                    isNotified: false,
+                    isActive: true,
+                    createdAt: rapidEvent.createdAt,
+                    updatedAt: Date()
+                )
+                try await rapidEventRepository.upsert(rapidEvent: updated)
+                try await scheduler.schedule(
+                    at: notifyAt,
+                    title: trimmedTitle,
+                    body: trimmedBody,
+                    identifier: identifier
+                )
+            } else {
+                if !rapidEvent.isNotified {
+                    scheduler.removePendingNotification(identifier: identifier)
+                }
+                let updated = RapidEvent(
+                    id: rapidEvent.id,
+                    notifyAt: notifyAt,
+                    title: trimmedTitle,
+                    body: trimmedBody,
+                    tagId: normalizedTagId,
+                    isNotified: true,
+                    isActive: rapidEvent.isActive,
+                    createdAt: rapidEvent.createdAt,
+                    updatedAt: Date()
+                )
+                try await rapidEventRepository.upsert(rapidEvent: updated)
+            }
+            try await loadRapidEventLists()
             errorMessage = nil
             return true
         } catch {
@@ -170,7 +195,7 @@ final class CreateReminderNotificationViewModel {
             scheduler.removePendingNotification(
                 identifier: CustomReminderNotificationScheduler.notificationIdentifier(for: rapidEvent.id)
             )
-            try await loadPendingRapidEvents()
+            try await loadRapidEventLists()
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
