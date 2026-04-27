@@ -170,10 +170,11 @@ private struct PendingRapidEventsSheet: View {
     let onError: () -> Void
 
     @State private var listTab: RapidEventsListTab = .pending
-    @State private var selectedRapidEvent: RapidEvent?
+    /// 編集画面へのプッシュ。`navigationDestination(item:)` はタブ＋`List` の組み合わせで遷移しないことがあるため `NavigationPath` を使う。
+    @State private var detailNavigationPath = NavigationPath()
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $detailNavigationPath) {
             VStack(spacing: 0) {
                 Picker("表示", selection: $listTab) {
                     ForEach(RapidEventsListTab.allCases) { tab in
@@ -203,10 +204,9 @@ private struct PendingRapidEventsSheet: View {
             .navigationTitle("通知の一覧")
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: listTab) { _, _ in
-                selectedRapidEvent = nil
+                detailNavigationPath = NavigationPath()
             }
-            /// 親シート上にさらに `.sheet` を重ねるとタップで編集が開かないことがあるため、同一 `NavigationStack` 内でプッシュする。
-            .navigationDestination(item: $selectedRapidEvent) { item in
+            .navigationDestination(for: RapidEvent.self) { item in
                 EditRapidEventSheet(
                     rapidEvent: item,
                     tags: viewModel.tags,
@@ -264,16 +264,23 @@ private struct PendingRapidEventsSheet: View {
     private func rapidEventRow(item: RapidEvent) -> some View {
         Button {
             FeedBack().feedback(.light)
-            selectedRapidEvent = item
+            detailNavigationPath.append(item)
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(item.title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                Text(formatted(date: item.notifyAt))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 0) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(formatted(date: item.notifyAt))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
             }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .swipeActions(edge: .trailing) {
