@@ -839,6 +839,8 @@ private struct CalendarDayTimelineSheetHost: View {
     let calendarAnchorMonth: Date
     let onDismissSheet: () -> Void
 
+    @State private var isPresentingCreateSheet = false
+
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 12) {
@@ -871,19 +873,39 @@ private struct CalendarDayTimelineSheetHost: View {
                         payRates: viewModel.payRates,
                         hourlyRates: viewModel.hourlyRates,
                         shiftTemplates: viewModel.shiftTemplates,
-                        onRefresh: {
-                            viewModel.refresh()
-                            if displayMode == .monthlyCalendar {
-                                viewModel.refreshCalendarRange(around: calendarAnchorMonth)
-                            }
-                        },
+                        onRefresh: refreshAfterScheduleChange,
                         onDismiss: { sheetDetail = nil }
                     )
                 }
             }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        FeedBack().feedback(.medium)
+                        isPresentingCreateSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.title2.weight(.semibold))
+                    }
+                    .accessibilityLabel("予定を追加")
+                }
+            }
+        }
+        .sheet(isPresented: $isPresentingCreateSheet) {
+            CreateItemSheet(
+                initialDate: dayStart,
+                onSaved: refreshAfterScheduleChange
+            )
         }
         .presentationDetents([.fraction(0.6), .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private func refreshAfterScheduleChange() {
+        viewModel.refresh()
+        if displayMode == .monthlyCalendar {
+            viewModel.refreshCalendarRange(around: calendarAnchorMonth)
+        }
     }
 
     private static func title(for day: Date) -> String {
