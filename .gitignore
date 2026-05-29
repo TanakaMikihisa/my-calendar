@@ -1,29 +1,73 @@
-# cache
+# --- macOS ---
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
 
-# agent
+# --- Xcode ---
+## ユーザー固有（共有スキームは xcshareddata に置く）
+**/xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+!default.perspectivev3
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+timeline.xctimeline
+playground.xcworkspace
+
+## ビルド成果物
+build/
+DerivedData/
+*.xcarchive
+
+# --- Swift Package Manager ---
+.build/
+.swiftpm/configuration/registries.json
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+# Package.resolved は再現性のためコミットする（無視しない）
+
+# --- CocoaPods / Carthage（未使用でも将来用） ---
+Pods/
+Carthage/Build/
+
+# --- fastlane ---
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# --- エージェント / ローカルツール ---
 .cursor/
 .agent/
 CALUDE.md
 
-# private
+# --- このリポジトリ固有（秘密・ローカル設定） ---
 private/
-# Firebase（リポジトリに含めない）
 GoogleService-Info.plist
+EnvironmentValue.swift
+
+## 署名・配布用（リポジトリに含めない）
+*.p12
+*.mobileprovision
+*.cer
+*.key
+*.p8
+
+## ドキュメント（README のみ公開）
 docs/
 *.md
 !README.md
-*.p12
-*.mobileprovision
-*.cer
-*.key
-*.p8
-*.p12
-*.mobileprovision
-*.cer
-*.key
-*.p8
-*.p12
-*.mobileprovision
-EnvironmentValue.swift
+
+## ローカル検証用
 test/
