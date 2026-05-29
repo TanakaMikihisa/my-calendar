@@ -48,7 +48,7 @@ struct EmptyCellShiftPopoverView: View {
 
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("シフトを選択してください。")
+            Text("シフトを登録")
                 .font(.title3.weight(.semibold))
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text("日付: \(dayLabel)")
